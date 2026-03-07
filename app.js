@@ -100,19 +100,20 @@ async function syncEvent(ev) {
     });
 
     if (res.ok) {
-      const idx = events.findIndex(e => e.id === ev.id);
-      if (idx !== -1) { events[idx].synced = true; saveEvents(); renderEvents(); }
-      showToast(`"${ev.title}" guardado en Google Calendar ✓`);
-    } else if (res.status === 401) {
-      gToken = null;
-      disconnectGoogle();
-      showToast('Sesión expirada. Vuelve a conectarte.');
-    } else {
-      showToast('Error al sincronizar con Google Calendar');
+      const gcalData = await res.json();
+      ev.synced = true;
+      ev.gcalId = gcalData.id;
+      const existingIdx = events.findIndex(e => e.id === ev.id || e.gcalId === gcalData.id);
+      if (existingIdx !== -1) {
+        events[existingIdx].synced = true;
+        events[existingIdx].gcalId = gcalData.id;
+      } else {
+      events.unshift(ev);
+      }
+    saveEvents();
+    renderEvents();
+    showToast(`"${ev.title}" guardado en Google Calendar ✓`);
     }
-  } catch(e) {
-    console.error(e);
-    showToast('Evento guardado localmente.');
   }
 }
 
@@ -303,11 +304,15 @@ function dismissAI() {
 
 // ─── Events CRUD ──────────────────────────────────────────────────────────────
 function pushEvent(ev) {
-  events.unshift(ev);
-  saveEvents();
-  renderEvents();
-  if (gToken) syncEvent(ev);
-  else showToast('Evento guardado');
+  if (gToken) {
+    // Con Google conectado: solo subir a GCal; la lista se actualiza al recibir respuesta exitosa
+    syncEvent(ev);
+  } else {
+    events.unshift(ev);
+    saveEvents();
+    renderEvents();
+    showToast('Evento guardado localmente');
+  }
 }
 
 function deleteEvent(id) {
