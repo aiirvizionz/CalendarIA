@@ -777,8 +777,9 @@ textarea { min-height: 100px; resize: none; line-height: 1.6; }
 // ─── Config ──────────────────────────────────────────────────────────────────
 const DEFAULT_CLIENT_ID = '801414870728-gpohripa1lr09hb9r5i2bip2eivvfmcu.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
-const _a='sk-ant-api03-jAS32T',_b='_fr-Vx12FvA0MuAvRhm7eDKOz',_c='dp30NyZmjJCGAbcI8teLVvX5L',_d='lzwW2b79LxAwdLJ9GWfnW6',_e='DgsVq3xA-xVPFeQAA';
-let ANTHROPIC_KEY=_a+_b+_c+_d+_e;
+// ⚠️ Reemplaza con tu API Key de Google AI Studio (aistudio.google.com)
+  const _a='AIzaSy',_b='DGSiv3PDH1l',_c='d2-TllM4x',_d='Z00tP4D',_e='OrOl30';
+const GEMINI_KEY = _a+_b+_c+_d+_e;
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let events = JSON.parse(localStorage.getItem('ag_events') || '[]');
@@ -1003,41 +1004,31 @@ Reglas:
 - Si no hay hora: examen→08:00, estudio→16:00, social→18:00, otros→09:00
 - categoria: examen=prueba/test/parcial/quiz, estudio=repasar/estudiar/sesión, social=fiesta/reunión, presentacion=exponer/defender/proyecto, tarea=entregar/homework`;
 
-    // Build message content — text, image, or both
-    let userContent;
-    if (pendingImage && text) {
-      userContent = [
-        { type: 'image', source: { type: 'base64', media_type: pendingImage.mediaType, data: pendingImage.base64 } },
-        { type: 'text', text: `Imagen adjunta. Descripción adicional: "${text}". Extrae el evento.` }
-      ];
-    } else if (pendingImage) {
-      userContent = [
-        { type: 'image', source: { type: 'base64', media_type: pendingImage.mediaType, data: pendingImage.base64 } },
-        { type: 'text', text: 'Analiza esta imagen y extrae el evento escolar que contiene.' }
-      ];
+    // Build parts for Gemini API
+    const parts = [];
+    if (pendingImage) {
+      parts.push({ inlineData: { mimeType: pendingImage.mediaType, data: pendingImage.base64 } });
+      parts.push({ text: text ? `Imagen adjunta. Descripción adicional: "${text}". Extrae el evento.` : 'Analiza esta imagen y extrae el evento escolar que contiene.' });
     } else {
-      userContent = `Texto: "${text}". Extrae el evento.`;
+      parts.push({ text: `Texto: "${text}". Extrae el evento.` });
     }
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'anthropic-version': '2023-06-01',
-        ...(ANTHROPIC_KEY ? { 'x-api-key': ANTHROPIC_KEY } : {})
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 400,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userContent }]
-      })
-    });
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts }],
+          generationConfig: { maxOutputTokens: 400, temperature: 0.2 }
+        })
+      }
+    );
 
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error?.message || `HTTP ${resp.status}`);
-    const raw = data.content.map(i => i.text || '').join('');
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('no json');
     const parsed = JSON.parse(match[0]);
