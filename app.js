@@ -95,13 +95,26 @@ async function syncEvent(ev) {
         summary: ev.title,
         description: `Categoría: ${catNames[ev.category] || ev.category} · Creado con AgendaAI`,
         start: { dateTime: start, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
-        end:   { dateTime: end,   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+        end:   { dateTime: end,   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        reminders: ev.reminderMinutes != null
+          ? { useDefault: false, overrides: [{ method: 'popup', minutes: ev.reminderMinutes }] }
+          : { useDefault: true }
       })
     });
 
     if (res.ok) {
+      const gcalData = await res.json();
       const idx = events.findIndex(e => e.id === ev.id);
-      if (idx !== -1) { events[idx].synced = true; saveEvents(); renderEvents(); }
+      if (idx !== -1) {
+        events[idx].synced = true;
+        events[idx].gcalId = gcalData.id;
+      } else {
+        // New event: add to local list for display (gcal-only flow)
+        ev.synced = true;
+        ev.gcalId = gcalData.id;
+        events.unshift(ev);
+      }
+      saveEvents(); renderEvents();
       showToast(`"${ev.title}" guardado en Google Calendar ✓`);
     } else if (res.status === 401) {
       gToken = null;
@@ -172,6 +185,12 @@ function setImage(base64, mediaType, dataUrl) {
   document.getElementById('imgPreview').src = dataUrl || `data:${mediaType};base64,${base64}`;
   document.getElementById('imgPreviewWrap').style.display = 'flex';
   document.getElementById('imgDropInner').style.display = 'none';
+  // Compact textarea when image loaded
+  const ta = document.getElementById('aiText');
+  ta.placeholder = 'Detalles adicionales (opcional)…';
+  ta.style.minHeight = '52px';
+  ta.style.height = '52px';
+  document.getElementById('aiTextLabel').innerHTML = 'Detalles adicionales <span style="font-weight:400;color:var(--gray-400)">(opcional)</span>';
 }
 
 function removeImage() {
@@ -179,6 +198,12 @@ function removeImage() {
   document.getElementById('imgPreviewWrap').style.display = 'none';
   document.getElementById('imgDropInner').style.display = 'flex';
   document.getElementById('imgFile').value = '';
+  // Restore full textarea
+  const ta = document.getElementById('aiText');
+  ta.placeholder = 'Ej: Tengo examen de física el viernes 20 a las 9am\n\no pega una foto de tu horario, tarea o notificación…';
+  ta.style.minHeight = '';
+  ta.style.height = '';
+  document.getElementById('aiTextLabel').innerHTML = 'Descripción <span style="font-weight:400;color:var(--gray-400)">(opcional si hay imagen)</span>';
 }
 
 // Drag & drop
@@ -213,6 +238,29 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ─── AI ───────────────────────────────────────────────────────────────────────
+
+
+// ─── Dark mode ───────────────────────────────────────────────────────────────
+function toggleDark() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('ag_dark', isDark ? '1' : '0');
+  document.getElementById('iconMoon').style.display = isDark ? 'none' : '';
+  document.getElementById('iconSun').style.display  = isDark ? '' : 'none';
+}
+
+// ─── Reminder toggle ─────────────────────────────────────────────────────────
+function toggleReminderOptions() {
+  const enabled = document.getElementById('reminderEnabled').checked;
+  document.getElementById('reminderOptions').style.display = enabled ? 'flex' : 'none';
+}
+
+function getSelectedReminderMinutes() {
+  const enabled = document.getElementById('reminderEnabled').checked;
+  if (!enabled) return null;
+  const sel = document.querySelector('input[name="reminder"]:checked');
+  return sel ? parseInt(sel.value) : 1440;
+}
+
 async function analyzeAI() {
   const text = document.getElementById('aiText').value.trim();
   if (!text && !pendingImage) return showToast('Escribe una descripción o adjunta una imagen');
@@ -289,10 +337,13 @@ Reglas:
 
 function confirmAI() {
   if (!pendingAI) return;
+  pendingAI.reminderMinutes = getSelectedReminderMinutes();
   pushEvent(pendingAI);
   pendingAI = null;
   document.getElementById('aiText').value = '';
   document.getElementById('aiResult').classList.remove('show');
+  document.getElementById('reminderEnabled').checked = false;
+  document.getElementById('reminderOptions').style.display = 'none';
   removeImage();
 }
 
@@ -303,11 +354,15 @@ function dismissAI() {
 
 // ─── Events CRUD ──────────────────────────────────────────────────────────────
 function pushEvent(ev) {
-  events.unshift(ev);
-  saveEvents();
-  renderEvents();
-  if (gToken) syncEvent(ev);
-  else showToast('Evento guardado');
+  if (gToken) {
+    // With Google connected: sync only to GCal, no local storage (avoids duplicates)
+    syncEvent(ev);
+  } else {
+    events.unshift(ev);
+    saveEvents();
+    renderEvents();
+    showToast('Evento guardado localmente');
+  }
 }
 
 function deleteEvent(id) {
@@ -433,6 +488,15 @@ document.addEventListener('DOMContentLoaded', () => {
   } else if (savedToken) {
     localStorage.removeItem('ag_gtoken');
     localStorage.removeItem('ag_gtoken_expiry');
+  }
+
+  // Restore dark mode
+  if (localStorage.getItem('ag_dark') === '1') {
+    document.documentElement.classList.add('dark');
+    const moon = document.getElementById('iconMoon');
+    const sun  = document.getElementById('iconSun');
+    if (moon) moon.style.display = 'none';
+    if (sun)  sun.style.display  = '';
   }
 
   const d = document.getElementById('mDate');
