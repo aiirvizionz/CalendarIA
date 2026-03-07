@@ -579,6 +579,52 @@ textarea { min-height: 100px; resize: none; line-height: 1.6; }
   .topbar { flex-direction: column; align-items: flex-start; gap: 16px; }
   .modal { padding: 24px; }
 }
+/* ── Image drop zone ──────────────────────────────── */
+.img-drop {
+  border: 1.5px dashed var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--off);
+  transition: border-color 0.15s, background 0.15s;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.img-drop:hover, .img-drop.dragover {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+.img-drop-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 20px;
+}
+.img-drop-text { font-size: 0.88rem; font-weight: 500; color: var(--gray-600); }
+.img-drop-sub  { font-size: 0.78rem; color: var(--gray-400); }
+.img-link {
+  background: none; border: none; color: var(--blue);
+  font-size: 0.78rem; font-family: 'Figtree', sans-serif;
+  cursor: pointer; padding: 0; text-decoration: underline;
+}
+.img-preview-wrap {
+  position: relative; padding: 12px;
+  display: flex; align-items: center; gap: 14px;
+}
+.img-preview {
+  width: 72px; height: 72px; object-fit: cover;
+  border-radius: var(--radius-xs); border: 1px solid var(--gray-100); flex-shrink: 0;
+}
+.img-preview-label { font-size: 0.83rem; color: var(--green); font-weight: 500; flex: 1; }
+.img-remove {
+  position: absolute; top: 8px; right: 8px;
+  background: var(--gray-900); color: white; border: none;
+  border-radius: 50%; width: 20px; height: 20px;
+  font-size: 0.7rem; cursor: pointer; opacity: 0.7;
+  display: flex; align-items: center; justify-content: center;
+}
+.img-remove:hover { opacity: 1; }
+
 </style>
 </head>
 <body>
@@ -669,10 +715,30 @@ textarea { min-height: 100px; resize: none; line-height: 1.6; }
 
     <!-- AI -->
     <div class="form-body" id="panelAI" style="display:none">
+
+      <!-- Image drop zone -->
+      <div class="img-drop" id="imgDrop">
+        <input type="file" id="imgFile" accept="image/*" style="display:none" onchange="handleFileInput(event)">
+        <div class="img-drop-inner" id="imgDropInner">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gray-400)">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <span class="img-drop-text">Arrastra una imagen aquí</span>
+          <span class="img-drop-sub">o <button class="img-link" onclick="document.getElementById('imgFile').click()">selecciona archivo</button> · Ctrl+V para pegar</span>
+        </div>
+        <!-- Preview -->
+        <div class="img-preview-wrap" id="imgPreviewWrap" style="display:none">
+          <img id="imgPreview" class="img-preview" alt="Imagen adjunta">
+          <button class="img-remove" onclick="removeImage()" title="Quitar imagen">✕</button>
+          <span class="img-preview-label">Imagen lista para analizar</span>
+        </div>
+      </div>
+
       <div class="field">
-        <label class="field-label">Describe el evento</label>
+        <label class="field-label">Descripción adicional <span style="font-weight:400;color:var(--gray-400)">(opcional si hay imagen)</span></label>
         <div class="ai-wrap">
-          <textarea id="aiText" placeholder="Ej: Tengo examen de física el viernes 20 a las 9am&#10;&#10;o&#10;&#10;Reunión de estudio con el equipo el martes a las 4 de la tarde para repasar el parcial…"></textarea>
+          <textarea id="aiText" placeholder="Ej: Tengo examen de física el viernes 20 a las 9am&#10;&#10;o pega una foto de tu horario, tarea o notificación…"></textarea>
           <span class="ai-tag">IA</span>
         </div>
       </div>
@@ -849,10 +915,75 @@ function addManual() {
   document.getElementById('mTitle').value = '';
 }
 
+// ─── Image handling ───────────────────────────────────────────────────────────
+let pendingImage = null; // { base64, mediaType }
+
+function handleFileInput(e) {
+  const file = e.target.files[0];
+  if (file) loadImageFile(file);
+}
+
+function loadImageFile(file) {
+  if (!file.type.startsWith('image/')) return showToast('Solo se aceptan imágenes');
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    const base64 = dataUrl.split(',')[1];
+    const mediaType = file.type;
+    setImage(base64, mediaType, dataUrl);
+  };
+  reader.readAsDataURL(file);
+}
+
+function setImage(base64, mediaType, dataUrl) {
+  pendingImage = { base64, mediaType };
+  document.getElementById('imgPreview').src = dataUrl || `data:${mediaType};base64,${base64}`;
+  document.getElementById('imgPreviewWrap').style.display = 'flex';
+  document.getElementById('imgDropInner').style.display = 'none';
+}
+
+function removeImage() {
+  pendingImage = null;
+  document.getElementById('imgPreviewWrap').style.display = 'none';
+  document.getElementById('imgDropInner').style.display = 'flex';
+  document.getElementById('imgFile').value = '';
+}
+
+// Drag & drop
+document.addEventListener('DOMContentLoaded', () => {
+  const drop = document.getElementById('imgDrop');
+
+  drop.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    drop.classList.add('dragover');
+  });
+  drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    drop.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) loadImageFile(file);
+  });
+
+  // Ctrl+V paste anywhere on the page
+  document.addEventListener('paste', (e) => {
+    // Only when AI tab is visible
+    if (document.getElementById('panelAI').style.display === 'none') return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) { loadImageFile(file); break; }
+      }
+    }
+  });
+});
+
 // ─── AI ───────────────────────────────────────────────────────────────────────
 async function analyzeAI() {
   const text = document.getElementById('aiText').value.trim();
-  if (!text) return showToast('Escribe la descripción del evento');
+  if (!text && !pendingImage) return showToast('Escribe una descripción o adjunta una imagen');
 
   const btn = document.getElementById('aiBtn');
   const txt = document.getElementById('aiTxt');
@@ -863,25 +994,30 @@ async function analyzeAI() {
     const today = new Date().toISOString().split('T')[0];
     const dow = new Date().toLocaleDateString('es-MX', { weekday: 'long' });
 
-    const prompt = `Eres un asistente de agenda escolar. Analiza este texto y extrae la información del evento.
-
+    const systemPrompt = `Eres un asistente de agenda escolar. Extrae la información de un evento escolar del texto o imagen proporcionados.
 Hoy es ${dow} ${today}.
-
-Texto: "${text}"
-
 Responde SOLO con JSON válido, sin markdown ni backticks:
-{
-  "titulo": "...",
-  "fecha": "YYYY-MM-DD",
-  "hora": "HH:MM",
-  "categoria": "examen|estudio|social|presentacion|tarea|otro",
-  "nota": "descripción breve de 1 línea"
-}
-
+{"titulo":"...","fecha":"YYYY-MM-DD","hora":"HH:MM","categoria":"examen|estudio|social|presentacion|tarea|otro","nota":"descripción breve"}
 Reglas:
-- Calcula fechas relativas desde hoy (mañana, próximo lunes, viernes…)
-- Si no hay hora, usa: examen→08:00, estudio→16:00, social→18:00, otros→09:00
-- categoria: examen=prueba/test/parcial/quiz, estudio=repasar/estudiar/sesión, social=fiesta/reunión/celebrar, presentacion=exponer/defender/proyecto, tarea=entregar/tarea/homework, otro=lo demás`;
+- Calcula fechas relativas desde hoy
+- Si no hay hora: examen→08:00, estudio→16:00, social→18:00, otros→09:00
+- categoria: examen=prueba/test/parcial/quiz, estudio=repasar/estudiar/sesión, social=fiesta/reunión, presentacion=exponer/defender/proyecto, tarea=entregar/homework`;
+
+    // Build message content — text, image, or both
+    let userContent;
+    if (pendingImage && text) {
+      userContent = [
+        { type: 'image', source: { type: 'base64', media_type: pendingImage.mediaType, data: pendingImage.base64 } },
+        { type: 'text', text: `Imagen adjunta. Descripción adicional: "${text}". Extrae el evento.` }
+      ];
+    } else if (pendingImage) {
+      userContent = [
+        { type: 'image', source: { type: 'base64', media_type: pendingImage.mediaType, data: pendingImage.base64 } },
+        { type: 'text', text: 'Analiza esta imagen y extrae el evento escolar que contiene.' }
+      ];
+    } else {
+      userContent = `Texto: "${text}". Extrae el evento.`;
+    }
 
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -889,7 +1025,8 @@ Reglas:
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 400,
-        messages: [{ role: 'user', content: prompt }]
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userContent }]
       })
     });
 
@@ -915,7 +1052,7 @@ Reglas:
 
   } catch(e) {
     console.error(e);
-    showToast('No pude analizar el texto. Intenta de nuevo.');
+    showToast('No pude analizar. Intenta de nuevo.');
   } finally {
     btn.disabled = false;
     txt.textContent = 'Analizar y agendar';
@@ -928,6 +1065,7 @@ function confirmAI() {
   pendingAI = null;
   document.getElementById('aiText').value = '';
   document.getElementById('aiResult').classList.remove('show');
+  removeImage();
 }
 
 function dismissAI() {
