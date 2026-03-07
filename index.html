@@ -711,7 +711,7 @@ textarea { min-height: 100px; resize: none; line-height: 1.6; }
 // ─── Config ──────────────────────────────────────────────────────────────────
 // IMPORTANTE: Reemplaza este CLIENT_ID con el tuyo de Google Cloud Console
 // Si ya lo configuraste en el modal, se usará el guardado.
-const DEFAULT_CLIENT_ID = 'TU_CLIENT_ID_AQUI.apps.googleusercontent.com';
+const DEFAULT_CLIENT_ID = '801414870728-gpohripa1lr09hb9r5i2bip2eivvfmcu.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -724,10 +724,6 @@ let clientId = localStorage.getItem('ag_client_id') || DEFAULT_CLIENT_ID;
 // ─── Google OAuth ─────────────────────────────────────────────────────────────
 function handleGCalBtn() {
   if (gToken) { disconnectGoogle(); return; }
-  // If no real client ID configured, open setup modal
-  if (!clientId || clientId.includes('TU_CLIENT_ID')) {
-    openModal(); return;
-  }
   startOAuth();
 }
 
@@ -746,69 +742,21 @@ function saveAndAuth() {
 }
 
 function startOAuth() {
-  // Build a self-contained callback page as a data URI or blob URL
-  // This page receives the token from Google and sends it back via postMessage
-  const callbackHTML = `<!DOCTYPE html><html><head><title>Conectando...</title>
-<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f7f7f5;}
-.box{text-align:center;padding:32px;background:white;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.1);}
-h3{margin:0 0 8px;color:#111;}p{color:#6b6b66;font-size:0.9rem;}</style></head>
-<body><div class="box"><h3>✓ Conectado</h3><p>Cerrando ventana...</p></div>
-<script>
-(function(){
-  var hash = window.location.hash;
-  if(hash && hash.includes('access_token')){
-    var p = new URLSearchParams(hash.substring(1));
-    var token = p.get('access_token');
-    if(token && window.opener){
-      window.opener.postMessage({type:'gcal_token',token:token},'*');
-      setTimeout(function(){window.close();},800);
-      return;
-    }
-  }
-  document.querySelector('p').textContent = 'Error al autenticar. Cierra esta ventana.';
-})();
-<\/script></body></html>`;
-
-  // Create a blob URL for the callback page (hosted in this same origin)
-  const blob = new Blob([callbackHTML], { type: 'text/html' });
-  const callbackUrl = URL.createObjectURL(blob);
+  // On GitHub Pages / any real host: simple direct redirect (no iFrame issues)
+  const redirectUri = 'https://aiirvizionz.github.io/agenda-ai/';
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: callbackUrl,
+    redirect_uri: redirectUri,
     response_type: 'token',
     scope: SCOPES,
     include_granted_scopes: 'true',
     state: 'gcal_auth'
   });
 
-  const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
-
-  // Open Google login in a new tab (not a popup, not inside the iFrame)
-  const authWin = window.open(authUrl, '_blank', 'width=500,height=620,left=200,top=100');
-
-  if (!authWin) {
-    // Fallback: redirect this iframe's top frame
-    showToast('Permitir popups en el navegador para continuar');
-    return;
-  }
-
-  // Listen for token from the callback page via postMessage
-  function onMessage(e) {
-    if (e.data && e.data.type === 'gcal_token' && e.data.token) {
-      window.removeEventListener('message', onMessage);
-      URL.revokeObjectURL(callbackUrl);
-      setGoogleConnected(e.data.token);
-    }
-  }
-  window.addEventListener('message', onMessage);
-
-  // Fallback: if popup is closed without token after 3 min
-  const timeout = setTimeout(() => {
-    window.removeEventListener('message', onMessage);
-    URL.revokeObjectURL(callbackUrl);
-  }, 180000);
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
 }
+
 
 function setGoogleConnected(token) {
   gToken = token;
@@ -1052,31 +1000,17 @@ function showToast(msg) {
 // ─── Utils ────────────────────────────────────────────────────────────────────
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// ─── Handle OAuth redirect (Google returns here with #access_token after login) ─
-// Works for both direct page load and iFrame scenarios
+// ─── Handle OAuth redirect (Google returns to this page with token in hash) ─────
 (function checkHashToken() {
-  // Check own hash
-  function tryHash(hash) {
-    if (hash && hash.includes('access_token') && hash.includes('state=gcal_auth')) {
-      const p = new URLSearchParams(hash.substring(1));
-      const token = p.get('access_token');
-      if (token) {
-        history.replaceState(null, '', window.location.pathname);
-        setGoogleConnected(token);
-        return true;
-      }
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token') && hash.includes('state=gcal_auth')) {
+    const p = new URLSearchParams(hash.substring(1));
+    const token = p.get('access_token');
+    if (token) {
+      history.replaceState(null, '', window.location.pathname);
+      setGoogleConnected(token);
     }
-    return false;
   }
-
-  if (tryHash(window.location.hash)) return;
-
-  // If inside iFrame, also check parent's hash (for top-level redirect flow)
-  try {
-    if (window.top && window.top !== window) {
-      tryHash(window.top.location.hash);
-    }
-  } catch(e) { /* cross-origin, ignore */ }
 })();
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
