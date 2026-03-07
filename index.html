@@ -775,10 +775,9 @@ textarea { min-height: 100px; resize: none; line-height: 1.6; }
 
 <script>
 // ─── Config ──────────────────────────────────────────────────────────────────
-// IMPORTANTE: Reemplaza este CLIENT_ID con el tuyo de Google Cloud Console
-// Si ya lo configuraste en el modal, se usará el guardado.
 const DEFAULT_CLIENT_ID = '801414870728-gpohripa1lr09hb9r5i2bip2eivvfmcu.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+let ANTHROPIC_KEY = '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';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let events = JSON.parse(localStorage.getItem('ag_events') || '[]');
@@ -1021,7 +1020,12 @@ Reglas:
 
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'anthropic-version': '2023-06-01',
+        ...(ANTHROPIC_KEY ? { 'x-api-key': ANTHROPIC_KEY } : {})
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 400,
@@ -1031,6 +1035,7 @@ Reglas:
     });
 
     const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error?.message || `HTTP ${resp.status}`);
     const raw = data.content.map(i => i.text || '').join('');
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('no json');
@@ -1051,8 +1056,8 @@ Reglas:
     document.getElementById('aiResult').classList.add('show');
 
   } catch(e) {
-    console.error(e);
-    showToast('No pude analizar. Intenta de nuevo.');
+    console.error('API Error:', e);
+    showToast('Error: ' + (e.message || 'No pude analizar. Intenta de nuevo.'));
   } finally {
     btn.disabled = false;
     txt.textContent = 'Analizar y agendar';
