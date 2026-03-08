@@ -367,7 +367,7 @@ function showToast(msg) {
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ─── Handle OAuth redirect (Google returns to this page with token in hash) ─────
-(function checkHashToken() {
+function checkHashToken() {
   const hash = window.location.hash;
   if (hash && hash.includes('access_token') && hash.includes('state=gcal_auth')) {
     const p = new URLSearchParams(hash.substring(1));
@@ -376,9 +376,11 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
     if (token) {
       history.replaceState(null, '', window.location.pathname);
       setGoogleConnected(token, expiresIn);
+      return true;
     }
   }
-})();
+  return false;
+}
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -420,7 +422,11 @@ async function loadGCalEvents() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Restore Google session from localStorage if token not expired
+  // First: handle OAuth redirect if coming back from Google login
+  const handledOAuth = checkHashToken();
+
+  // Restore Google session from localStorage if token not expired (only if not just logged in)
+  if (!handledOAuth) {
   const savedToken = localStorage.getItem('ag_gtoken');
   const savedExpiry = parseInt(localStorage.getItem('ag_gtoken_expiry') || '0');
   if (savedToken && Date.now() < savedExpiry) {
@@ -435,7 +441,10 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.removeItem('ag_gtoken_expiry');
   }
 
+  } // end if (!handledOAuth)
+
   const d = document.getElementById('mDate');
   if (d) d.value = new Date().toISOString().split('T')[0];
   renderEvents();
 });
+
