@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-
+ 
   <!-- ══ Modal: Configurar Google Calendar ══════════════════════════════════ -->
   <div class="overlay hidden" id="oauthModal">
     <div class="modal">
@@ -19,7 +19,7 @@
         Ingresa tu Client ID de OAuth 2.0. Al conectar se abrirá una ventana
         de Google — <strong>permite los popups</strong> si tu navegador los bloquea.
       </p>
-
+ 
       <ol class="steps">
         <li class="step">
           <div class="step-num">1</div>
@@ -41,7 +41,7 @@
           </span>
         </li>
       </ol>
-
+ 
       <div class="modal-field">
         <label class="field-label" for="clientIdInput">Google OAuth Client ID</label>
         <input
@@ -50,21 +50,21 @@
           placeholder="xxxxxxxx.apps.googleusercontent.com"
         />
       </div>
-
+ 
       <div class="modal-btns">
         <button class="btn btn-ghost" style="flex:1" onclick="closeModal()">Cancelar</button>
         <button class="btn btn-primary" style="flex:2" onclick="saveAndAuth()">Guardar y conectar →</button>
       </div>
     </div>
   </div>
-
+ 
   <!-- ══ Página principal ════════════════════════════════════════════════════ -->
   <main class="page">
-
+ 
     <!-- Topbar -->
     <header class="topbar">
       <div class="logo">AgendaAI <sup>Beta</sup></div>
-
+ 
       <button class="gcal-btn" id="gcalBtn" onclick="handleGCalBtn()">
         <svg width="16" height="16" viewBox="0 0 48 48" fill="none" aria-hidden="true">
           <path d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.5-.4-3.5z" fill="#FFC107"/>
@@ -76,25 +76,25 @@
         <div class="gcal-dot" aria-hidden="true"></div>
       </button>
     </header>
-
+ 
     <!-- ── Sección: Agregar evento ────────────────────────────────────────── -->
     <section aria-label="Agregar evento">
       <p class="section-label">Agregar evento</p>
-
+ 
       <div class="card">
         <div class="tabs" role="tablist">
           <button class="tab active" id="tabManual" role="tab" aria-selected="true"  onclick="setTab('manual')">Manual</button>
           <button class="tab"        id="tabAI"     role="tab" aria-selected="false" onclick="setTab('ai')">Texto libre · IA</button>
-          <button class="tab"        id="tabAudio"  role="tab" aria-selected="false" onclick="setTab('audio')">🎙 Audio</button>
+          <button class="tab"        id="tabAudio"  role="tab" aria-selected="false" onclick="setTab('audio')"><span aria-hidden="true">🎙</span> Audio</button>
         </div>
-
+ 
         <!-- Panel: Manual -->
         <div class="form-body" id="panelManual" role="tabpanel">
           <div class="field">
             <label class="field-label" for="mTitle">Título</label>
             <input type="text" id="mTitle" placeholder="Ej. Examen de Cálculo…" autocomplete="off" />
           </div>
-
+ 
           <div class="field field-row">
             <div>
               <label class="field-label" for="mDate">Fecha</label>
@@ -105,7 +105,7 @@
               <input type="time" id="mTime" />
             </div>
           </div>
-
+ 
           <div class="field">
             <label class="field-label">Categoría</label>
             <div class="chips" id="manChips">
@@ -117,18 +117,18 @@
               <button class="chip"             data-cat="otro"         onclick="pickCat(this)">Otro</button>
             </div>
           </div>
-
+ 
           <div class="btn-row">
             <button class="btn btn-primary" onclick="addManual()">Agregar evento</button>
           </div>
         </div>
-
+ 
         <!-- Panel: Texto libre · IA -->
         <div class="form-body" id="panelAI" role="tabpanel" style="display:none">
-
+ 
           <div class="img-drop" id="imgDrop">
             <input type="file" id="imgFile" accept="image/*" style="display:none" onchange="handleFileInput(event)" />
-
+ 
             <div class="img-drop-inner" id="imgDropInner">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
                    stroke="currentColor" stroke-width="1.5"
@@ -147,14 +147,14 @@
                 · Ctrl+V para pegar
               </span>
             </div>
-
+ 
             <div class="img-preview-wrap" id="imgPreviewWrap" style="display:none">
               <img id="imgPreview" class="img-preview" alt="Imagen adjunta" />
               <button class="img-remove" onclick="removeImage()" aria-label="Quitar imagen">✕</button>
               <span class="img-preview-label">Imagen lista para analizar</span>
             </div>
           </div>
-
+ 
           <div class="field">
             <label class="field-label" for="aiText">
               Descripción adicional
@@ -168,13 +168,13 @@
               <span class="ai-tag" aria-hidden="true">IA</span>
             </div>
           </div>
-
+ 
           <div class="btn-row">
             <button class="btn btn-primary" id="aiBtn" onclick="analyzeAI()">
               <span id="aiTxt">Analizar y agendar</span>
             </button>
           </div>
-
+ 
           <div class="ai-result" id="aiResult" aria-live="polite">
             <p class="ai-result-label">Evento detectado</p>
             <div class="ai-rows" id="aiRows"></div>
@@ -184,7 +184,7 @@
             </div>
           </div>
         </div>
-
+ 
         <!-- Panel: Audio -->
         <div class="form-body" id="panelAudio" role="tabpanel" style="display:none">
           <div class="audio-recorder">
@@ -193,15 +193,15 @@
               <p class="audio-label" id="audioLabel">Toca para grabar</p>
               <p class="audio-sub"   id="audioSub">Describe tu evento en voz alta</p>
             </div>
-
+ 
             <div class="audio-waves" id="audioWaves" style="display:none" aria-hidden="true">
               <span></span><span></span><span></span><span></span><span></span>
             </div>
-
+ 
             <button class="audio-btn" id="audioBtn" onclick="toggleRecording()" aria-label="Grabar audio">
               <span id="audioBtnIcon" aria-hidden="true">⏺</span>
             </button>
-
+ 
             <div class="audio-transcript-wrap" id="audioTranscriptWrap" style="display:none">
               <p class="section-label" style="margin-bottom:8px">Transcripción</p>
               <div class="audio-transcript" id="audioTranscript" aria-live="polite"></div>
@@ -213,7 +213,7 @@
               </div>
             </div>
           </div>
-
+ 
           <div class="ai-result" id="aiResultAudio" aria-live="polite">
             <p class="ai-result-label">Evento detectado</p>
             <div class="ai-rows" id="aiRowsAudio"></div>
@@ -225,7 +225,7 @@
         </div>
       </div>
     </section>
-
+ 
     <!-- ── Sección: Próximos eventos ─────────────────────────────────────── -->
     <section class="events-section" aria-label="Próximos eventos">
       <div class="events-header">
@@ -239,9 +239,10 @@
         </div>
       </div>
     </section>
-
+ 
   </main>
-
+ 
   <script src="app.js"></script>
 </body>
 </html>
+ 
