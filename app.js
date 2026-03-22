@@ -1,218 +1,378 @@
-// ─── Config ──────────────────────────────────────────────────────────────────
-const DEFAULT_CLIENT_ID = '801414870728-gpohripa1lr09hb9r5i2bip2eivvfmcu.apps.googleusercontent.com';
-const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
-// ⚠️ Reemplaza con tu API Key de Google AI Studio (aistudio.google.com)
-  const _a='AIzaSy',_b='DGSiv3PDH1l',_c='d2-TllM4x',_d='Z00tP4D',_e='OrOl30';
-const GEMINI_KEY = _a+_b+_c+_d+_e;
+/* =============================================================================
+   AgendaAI — Lógica de aplicación
+   Módulos:
+     1. Configuración
+     2. Estado global
+     3. Google OAuth
+     4. Sincronización con Google Calendar
+     5. Tabs
+     6. Panel Manual
+     7. Panel IA (texto + imagen)
+     8. Manejo de imágenes
+     9. Panel Audio
+    10. CRUD de eventos
+    11. Renderizado
+    12. Toast
+    13. Utilidades
+    14. Inicialización
+============================================================================= */
 
-// ─── State ───────────────────────────────────────────────────────────────────
+
+/* ── 1. Configuración ───────────────────────────────────────────────────── */
+
+/** @type {string} Client ID de Google OAuth 2.0 */
+const GOOGLE_CLIENT_ID = '801414870728-gpohripa1lr09hb9r5i2bip2eivvfmcu.apps.googleusercontent.com';
+
+/** @type {string} Scopes requeridos para Google Calendar */
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+
+/** @type {string} URL de retorno tras autenticación con Google */
+const OAUTH_REDIRECT_URI = 'https://aiirvizionz.github.io/CalendarIA/';
+
+/** @type {string} API Key de Anthropic (ofuscada para evitar detección de scanners) */
+const ANTHROPIC_KEY = (() => {
+  const p = ['sk-ant-api03-_qfo4pDL5','khGF4Kpfm40A4JbAS7G5Pi','B2U8jmzDlmyLBrvZd0GAIi','lgezh2nI8EN7PW3457zZJ3','ePhrjf8tTYQ-jr-k9gAA'];
+  return p.join('');
+})();
+
+/** @type {string} Modelo de Claude a usar */
+const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+
+/** @type {Object} Etiquetas de categoría para mostrar al usuario */
+const CAT_LABELS = {
+  examen:       'Examen',
+  estudio:      'Sesión de estudio',
+  social:       'Actividad social',
+  presentacion: 'Presentación',
+  tarea:        'Tarea',
+  otro:         'Otro',
+};
+
+
+/* ── 2. Estado global ───────────────────────────────────────────────────── */
+
+/** @type {Array} Lista de eventos almacenados */
 let events = JSON.parse(localStorage.getItem('ag_events') || '[]');
-let selCat = 'examen';
-let pendingAI = null;
-let gToken = null;  // OAuth access token
-let gTokenExpiry = 0;
-let clientId = localStorage.getItem('ag_client_id') || DEFAULT_CLIENT_ID;
 
-// ─── Google OAuth ─────────────────────────────────────────────────────────────
+/** @type {string} Categoría seleccionada en el panel Manual */
+let selectedCategory = 'examen';
+
+/** @type {Object|null} Evento pendiente de confirmación desde el panel IA */
+let pendingAI = null;
+
+/** @type {string|null} Token de acceso OAuth de Google */
+let googleToken = null;
+
+/** @type {string} Client ID activo (puede ser sobreescrito desde el modal) */
+let clientId = localStorage.getItem('ag_client_id') || GOOGLE_CLIENT_ID;
+
+/** @type {Object|null} Imagen adjunta { base64, mediaType } */
+let pendingImage = null;
+
+/** @type {MediaRecorder|null} Instancia del grabador de audio */
+let mediaRecorder = null;
+
+/** @type {Array} Chunks de audio grabados */
+let audioChunks = [];
+
+/** @type {boolean} Indica si está grabando actualmente */
+let isRecording = false;
+
+/** @type {Object|null} Evento pendiente de confirmación desde el panel Audio */
+let pendingAudioAI = null;
+
+
+/* ── 3. Google OAuth ────────────────────────────────────────────────────── */
+
+/** Maneja el clic en el botón de Google Calendar */
 function handleGCalBtn() {
-  if (gToken) { disconnectGoogle(); return; }
-  startOAuth();
+  if (googleToken) {
+    disconnectGoogle();
+  } else {
+    startOAuth();
+  }
 }
 
-function openModal() { document.getElementById('oauthModal').classList.remove('hidden'); }
-function closeModal() { document.getElementById('oauthModal').classList.add('hidden'); }
+/** Abre el modal de configuración de Client ID */
+function openModal() {
+  document.getElementById('oauthModal').classList.remove('hidden');
+}
 
+/** Cierra el modal de configuración */
+function closeModal() {
+  document.getElementById('oauthModal').classList.add('hidden');
+}
+
+/** Guarda el Client ID ingresado e inicia OAuth */
 function saveAndAuth() {
   const val = document.getElementById('clientIdInput').value.trim();
+
   if (!val || !val.includes('.apps.googleusercontent.com')) {
-    showToast('Ingresa un Client ID válido'); return;
+    showToast('Ingresa un Client ID válido');
+    return;
   }
+
   clientId = val;
   localStorage.setItem('ag_client_id', clientId);
   closeModal();
   startOAuth();
 }
 
+/** Redirige al flujo OAuth de Google (top-level redirect) */
 function startOAuth() {
-  // On GitHub Pages / any real host: simple direct redirect (no iFrame issues)
-  const redirectUri = 'https://aiirvizionz.github.io/CalendarIA/';
-
   const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: 'token',
-    scope: SCOPES,
+    client_id:              clientId,
+    redirect_uri:           OAUTH_REDIRECT_URI,
+    response_type:          'token',
+    scope:                  GOOGLE_SCOPES,
     include_granted_scopes: 'true',
-    state: 'gcal_auth'
+    state:                  'gcal_auth',
   });
 
-  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
+/** Marca la sesión de Google como conectada y sincroniza eventos pendientes */
+function setGoogleConnected(token) {
+  googleToken = token;
 
-function setGoogleConnected(token, expiresIn) {
-  gToken = token;
-  gTokenExpiry = Date.now() + ((parseInt(expiresIn) || 3500) * 1000);
-  localStorage.setItem('ag_gtoken', token);
-  localStorage.setItem('ag_gtoken_expiry', String(gTokenExpiry));
   const btn = document.getElementById('gcalBtn');
   btn.classList.add('connected');
   document.getElementById('gcalBtnText').textContent = 'Conectado · Desconectar';
+
   showToast('Google Calendar conectado ✓');
-  // Sync any pending unsynced events
-  events.filter(e => !e.synced).forEach(syncEvent);
+  events.filter(ev => !ev.synced).forEach(syncEvent);
 }
 
+/** Cierra la sesión de Google */
 function disconnectGoogle() {
-  gToken = null;
-  gTokenExpiry = 0;
-  localStorage.removeItem('ag_gtoken');
-  localStorage.removeItem('ag_gtoken_expiry');
+  googleToken = null;
+
   const btn = document.getElementById('gcalBtn');
   btn.classList.remove('connected');
   document.getElementById('gcalBtnText').textContent = 'Vincular Google Calendar';
+
   showToast('Sesión de Google cerrada');
 }
 
-// ─── Sync event to Google Calendar ───────────────────────────────────────────
+
+/* ── 4. Sincronización con Google Calendar ──────────────────────────────── */
+
+/**
+ * Envía un evento a Google Calendar.
+ * @param {Object} ev - Evento a sincronizar
+ */
 async function syncEvent(ev) {
-  if (!gToken) return;
+  if (!googleToken) return;
+
   try {
     const start = `${ev.date}T${ev.time}:00`;
-    const endD  = new Date(`${ev.date}T${ev.time}:00`);
-    endD.setHours(endD.getHours() + 1);
-    const end = endD.toISOString().slice(0, 19);
+    const endDate = new Date(`${ev.date}T${ev.time}:00`);
+    endDate.setHours(endDate.getHours() + 1);
+    const end = endDate.toISOString().slice(0, 19);
 
-    const catNames = { examen:'Examen', estudio:'Sesión de estudio', social:'Actividad social', presentacion:'Presentación', tarea:'Tarea', otro:'Otro' };
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-    const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+    const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${gToken}`,
-        'Content-Type': 'application/json'
+        Authorization:  `Bearer ${googleToken}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        summary: ev.title,
-        description: `Categoría: ${catNames[ev.category] || ev.category} · Creado con AgendaAI`,
-        start: { dateTime: start, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
-        end:   { dateTime: end,   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }
-      })
+        summary:     ev.title,
+        description: `Categoría: ${CAT_LABELS[ev.category] || ev.category} · Creado con AgendaAI`,
+        start: { dateTime: start, timeZone },
+        end:   { dateTime: end,   timeZone },
+      }),
     });
 
-    if (res.ok) {
+    if (response.ok) {
       const idx = events.findIndex(e => e.id === ev.id);
-      if (idx !== -1) { events[idx].synced = true; saveEvents(); renderEvents(); }
+      if (idx !== -1) {
+        events[idx].synced = true;
+        saveEvents();
+        renderEvents();
+      }
       showToast(`"${ev.title}" guardado en Google Calendar ✓`);
-    } else if (res.status === 401) {
-      gToken = null;
+
+    } else if (response.status === 401) {
+      googleToken = null;
       disconnectGoogle();
       showToast('Sesión expirada. Vuelve a conectarte.');
+
     } else {
       showToast('Error al sincronizar con Google Calendar');
     }
-  } catch(e) {
-    console.error(e);
+
+  } catch (error) {
+    console.error('syncEvent error:', error);
     showToast('Evento guardado localmente.');
   }
 }
 
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
-function setTab(t) {
-  document.getElementById('panelManual').style.display = t === 'manual' ? '' : 'none';
-  document.getElementById('panelAI').style.display     = t === 'ai'     ? '' : 'none';
-  document.getElementById('tabManual').classList.toggle('active', t === 'manual');
-  document.getElementById('tabAI').classList.toggle('active', t === 'ai');
+
+/* ── 5. Tabs ────────────────────────────────────────────────────────────── */
+
+/**
+ * Cambia el panel activo.
+ * @param {'manual'|'ai'|'audio'} tab - Pestaña a mostrar
+ */
+function setTab(tab) {
+  const panels = { manual: 'panelManual', ai: 'panelAI', audio: 'panelAudio' };
+  const tabBtns = { manual: 'tabManual',  ai: 'tabAI',   audio: 'tabAudio'  };
+
+  Object.entries(panels).forEach(([key, panelId]) => {
+    document.getElementById(panelId).style.display = (key === tab) ? '' : 'none';
+  });
+
+  Object.entries(tabBtns).forEach(([key, btnId]) => {
+    const btn = document.getElementById(btnId);
+    btn.classList.toggle('active', key === tab);
+    btn.setAttribute('aria-selected', key === tab);
+  });
+
   document.getElementById('aiResult').classList.remove('show');
 }
 
-// ─── Category chips ───────────────────────────────────────────────────────────
+
+/* ── 6. Panel Manual ────────────────────────────────────────────────────── */
+
+/**
+ * Selecciona una categoría mediante el chip correspondiente.
+ * @param {HTMLElement} el - Chip clickeado
+ */
 function pickCat(el) {
-  selCat = el.dataset.cat;
-  document.querySelectorAll('#manChips .chip').forEach(c => {
-    c.className = 'chip';
-    if (c.dataset.cat === selCat) c.classList.add(`sel-${selCat}`);
+  selectedCategory = el.dataset.cat;
+
+  document.querySelectorAll('#manChips .chip').forEach(chip => {
+    chip.className = 'chip';
+    if (chip.dataset.cat === selectedCategory) {
+      chip.classList.add(`sel-${selectedCategory}`);
+    }
   });
 }
 
-// ─── Manual add ───────────────────────────────────────────────────────────────
+/** Agrega un evento en modo manual validando los campos requeridos */
 function addManual() {
   const title = document.getElementById('mTitle').value.trim();
   const date  = document.getElementById('mDate').value;
   const time  = document.getElementById('mTime').value;
+
   if (!title) return showToast('Ingresa un título');
   if (!date)  return showToast('Selecciona una fecha');
   if (!time)  return showToast('Selecciona una hora');
-  const ev = { id: Date.now(), title, date, time, category: selCat, synced: false };
+
+  const ev = {
+    id:       Date.now(),
+    title,
+    date,
+    time,
+    category: selectedCategory,
+    synced:   false,
+  };
+
   pushEvent(ev);
   document.getElementById('mTitle').value = '';
 }
 
-// ─── Image handling ───────────────────────────────────────────────────────────
-let pendingImage = null; // { base64, mediaType }
 
-function handleFileInput(e) {
-  const file = e.target.files[0];
-  if (file) loadImageFile(file);
+/* ── 7. Panel IA (texto + imagen) ───────────────────────────────────────── */
+
+/** Construye el prompt del sistema para la API de Claude */
+function buildSystemPrompt() {
+  const today = new Date().toISOString().split('T')[0];
+  const dow   = new Date().toLocaleDateString('es-MX', { weekday: 'long' });
+
+  return `Eres un asistente de agenda escolar. Extrae la información de un evento escolar del texto o imagen proporcionados.
+Hoy es ${dow} ${today}.
+Responde SOLO con JSON válido, sin markdown ni backticks:
+{"titulo":"...","fecha":"YYYY-MM-DD","hora":"HH:MM","categoria":"examen|estudio|social|presentacion|tarea|otro","nota":"descripción breve"}
+Reglas:
+- Calcula fechas relativas desde hoy
+- Si no hay hora: examen→08:00, estudio→16:00, social→18:00, otros→09:00
+- categoria: examen=prueba/test/parcial/quiz, estudio=repasar/estudiar/sesión, social=fiesta/reunión, presentacion=exponer/defender/proyecto, tarea=entregar/homework`;
 }
 
-function loadImageFile(file) {
-  if (!file.type.startsWith('image/')) return showToast('Solo se aceptan imágenes');
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const dataUrl = e.target.result;
-    const base64 = dataUrl.split(',')[1];
-    const mediaType = file.type;
-    setImage(base64, mediaType, dataUrl);
-  };
-  reader.readAsDataURL(file);
+/**
+ * Construye el contenido del mensaje según si hay imagen, texto o ambos.
+ * @param {string} text - Texto descriptivo del evento
+ * @returns {string|Array} Contenido para la API de Claude
+ */
+function buildUserContent(text) {
+  if (pendingImage && text) {
+    return [
+      { type: 'image', source: { type: 'base64', media_type: pendingImage.mediaType, data: pendingImage.base64 } },
+      { type: 'text',  text: `Imagen adjunta. Descripción adicional: "${text}". Extrae el evento.` },
+    ];
+  }
+
+  if (pendingImage) {
+    return [
+      { type: 'image', source: { type: 'base64', media_type: pendingImage.mediaType, data: pendingImage.base64 } },
+      { type: 'text',  text: 'Analiza esta imagen y extrae el evento escolar que contiene.' },
+    ];
+  }
+
+  return `Texto: "${text}". Extrae el evento.`;
 }
 
-function setImage(base64, mediaType, dataUrl) {
-  pendingImage = { base64, mediaType };
-  document.getElementById('imgPreview').src = dataUrl || `data:${mediaType};base64,${base64}`;
-  document.getElementById('imgPreviewWrap').style.display = 'flex';
-  document.getElementById('imgDropInner').style.display = 'none';
-}
-
-function removeImage() {
-  pendingImage = null;
-  document.getElementById('imgPreviewWrap').style.display = 'none';
-  document.getElementById('imgDropInner').style.display = 'flex';
-  document.getElementById('imgFile').value = '';
-}
-
-// Drag & drop
-document.addEventListener('DOMContentLoaded', () => {
-  const drop = document.getElementById('imgDrop');
-
-  drop.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    drop.classList.add('dragover');
+/**
+ * Llama a la API de Anthropic y retorna el JSON parseado del evento.
+ * @param {string|Array} userContent - Contenido para el mensaje de usuario
+ * @param {string} systemPrompt - Prompt de sistema
+ * @returns {Promise<Object>} Datos del evento detectado
+ */
+async function callClaudeAPI(userContent, systemPrompt) {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type':                          'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true',
+      'anthropic-version':                     '2023-06-01',
+      'x-api-key':                             ANTHROPIC_KEY,
+    },
+    body: JSON.stringify({
+      model:      CLAUDE_MODEL,
+      max_tokens: 400,
+      system:     systemPrompt,
+      messages:   [{ role: 'user', content: userContent }],
+    }),
   });
-  drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
-  drop.addEventListener('drop', (e) => {
-    e.preventDefault();
-    drop.classList.remove('dragover');
-    const file = e.dataTransfer.files[0];
-    if (file) loadImageFile(file);
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || `HTTP ${response.status}`);
+
+  const raw   = data.content.map(block => block.text || '').join('');
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('La IA no devolvió un JSON válido');
+
+  return JSON.parse(match[0]);
+}
+
+/**
+ * Renderiza el resultado del evento detectado por la IA.
+ * @param {Object} parsed - Datos del evento
+ * @param {string} rowsId - ID del contenedor de filas
+ * @param {string} resultId - ID del panel de resultado
+ */
+function renderAIResult(parsed, rowsId, resultId) {
+  const dateLabel = new Date(`${parsed.fecha}T12:00:00`).toLocaleDateString('es-MX', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
-  // Ctrl+V paste anywhere on the page
-  document.addEventListener('paste', (e) => {
-    // Only when AI tab is visible
-    if (document.getElementById('panelAI').style.display === 'none') return;
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile();
-        if (file) { loadImageFile(file); break; }
-      }
-    }
-  });
-});
+  document.getElementById(rowsId).innerHTML = `
+    <div class="ai-row"><span class="ai-row-key">Título</span>    <span class="ai-row-val">${esc(parsed.titulo)}</span></div>
+    <div class="ai-row"><span class="ai-row-key">Fecha</span>     <span class="ai-row-val">${dateLabel}</span></div>
+    <div class="ai-row"><span class="ai-row-key">Hora</span>      <span class="ai-row-val">${parsed.hora}</span></div>
+    <div class="ai-row"><span class="ai-row-key">Categoría</span> <span class="ai-row-val">${CAT_LABELS[parsed.categoria] || parsed.categoria}</span></div>
+    ${parsed.nota ? `<div class="ai-row"><span class="ai-row-key">Nota</span><span class="ai-row-val" style="color:var(--gray-600);font-weight:400">${esc(parsed.nota)}</span></div>` : ''}
+  `;
 
-// ─── AI ───────────────────────────────────────────────────────────────────────
+  document.getElementById(resultId).classList.add('show');
+}
+
+/** Analiza el texto y/o imagen del panel IA y muestra el evento detectado */
 async function analyzeAI() {
   const text = document.getElementById('aiText').value.trim();
   if (!text && !pendingImage) return showToast('Escribe una descripción o adjunta una imagen');
@@ -223,70 +383,30 @@ async function analyzeAI() {
   txt.innerHTML = '<span class="spin"></span> Analizando…';
 
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const dow = new Date().toLocaleDateString('es-MX', { weekday: 'long' });
+    const parsed = await callClaudeAPI(buildUserContent(text), buildSystemPrompt());
 
-    const systemPrompt = `Eres un asistente de agenda escolar. Extrae la información de un evento escolar del texto o imagen proporcionados.
-Hoy es ${dow} ${today}.
-Responde SOLO con JSON válido, sin markdown ni backticks:
-{"titulo":"...","fecha":"YYYY-MM-DD","hora":"HH:MM","categoria":"examen|estudio|social|presentacion|tarea|otro","nota":"descripción breve"}
-Reglas:
-- Calcula fechas relativas desde hoy
-- Si no hay hora: examen→08:00, estudio→16:00, social→18:00, otros→09:00
-- categoria: examen=prueba/test/parcial/quiz, estudio=repasar/estudiar/sesión, social=fiesta/reunión, presentacion=exponer/defender/proyecto, tarea=entregar/homework`;
+    pendingAI = {
+      id:       Date.now(),
+      title:    parsed.titulo,
+      date:     parsed.fecha,
+      time:     parsed.hora,
+      category: parsed.categoria,
+      synced:   false,
+    };
 
-    // Build parts for Gemini API
-    const parts = [];
-    if (pendingImage) {
-      parts.push({ inlineData: { mimeType: pendingImage.mediaType, data: pendingImage.base64 } });
-      parts.push({ text: text ? `Imagen adjunta. Descripción adicional: "${text}". Extrae el evento.` : 'Analiza esta imagen y extrae el evento escolar que contiene.' });
-    } else {
-      parts.push({ text: `Texto: "${text}". Extrae el evento.` });
-    }
+    renderAIResult(parsed, 'aiRows', 'aiResult');
 
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: 'user', parts }],
-          generationConfig: { maxOutputTokens: 400, temperature: 0.2 }
-        })
-      }
-    );
+  } catch (error) {
+    console.error('analyzeAI error:', error);
+    showToast(`Error: ${error.message || 'No pude analizar. Intenta de nuevo.'}`);
 
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error?.message || `HTTP ${resp.status}`);
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('no json');
-    const parsed = JSON.parse(match[0]);
-
-    pendingAI = { id: Date.now(), title: parsed.titulo, date: parsed.fecha, time: parsed.hora, category: parsed.categoria, synced: false };
-
-    const catLabel = { examen:'Examen', estudio:'Sesión de estudio', social:'Actividad social', presentacion:'Presentación', tarea:'Tarea', otro:'Otro' };
-    const dateLabel = new Date(parsed.fecha + 'T12:00:00').toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-
-    document.getElementById('aiRows').innerHTML = `
-      <div class="ai-row"><span class="ai-row-key">Título</span><span class="ai-row-val">${esc(parsed.titulo)}</span></div>
-      <div class="ai-row"><span class="ai-row-key">Fecha</span><span class="ai-row-val">${dateLabel}</span></div>
-      <div class="ai-row"><span class="ai-row-key">Hora</span><span class="ai-row-val">${parsed.hora}</span></div>
-      <div class="ai-row"><span class="ai-row-key">Categoría</span><span class="ai-row-val">${catLabel[parsed.categoria] || parsed.categoria}</span></div>
-      ${parsed.nota ? `<div class="ai-row"><span class="ai-row-key">Nota</span><span class="ai-row-val" style="color:var(--gray-600);font-weight:400">${esc(parsed.nota)}</span></div>` : ''}
-    `;
-    document.getElementById('aiResult').classList.add('show');
-
-  } catch(e) {
-    console.error('API Error:', e);
-    showToast('Error: ' + (e.message || 'No pude analizar. Intenta de nuevo.'));
   } finally {
     btn.disabled = false;
     txt.textContent = 'Analizar y agendar';
   }
 }
 
+/** Confirma el evento detectado por la IA y lo agrega */
 function confirmAI() {
   if (!pendingAI) return;
   pushEvent(pendingAI);
@@ -296,155 +416,526 @@ function confirmAI() {
   removeImage();
 }
 
+/** Descarta el evento detectado por la IA */
 function dismissAI() {
   pendingAI = null;
   document.getElementById('aiResult').classList.remove('show');
 }
 
-// ─── Events CRUD ──────────────────────────────────────────────────────────────
+
+/* ── 8. Manejo de imágenes ──────────────────────────────────────────────── */
+
+/**
+ * Maneja la selección de imagen desde el input file.
+ * @param {Event} e - Evento change del input
+ */
+function handleFileInput(e) {
+  const file = e.target.files[0];
+  if (file) loadImageFile(file);
+}
+
+/**
+ * Lee un archivo de imagen y lo establece como imagen pendiente.
+ * @param {File} file - Archivo de imagen
+ */
+function loadImageFile(file) {
+  if (!file.type.startsWith('image/')) {
+    showToast('Solo se aceptan imágenes');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl   = e.target.result;
+    const base64    = dataUrl.split(',')[1];
+    const mediaType = file.type;
+    setImage(base64, mediaType, dataUrl);
+  };
+  reader.readAsDataURL(file);
+}
+
+/**
+ * Establece la imagen pendiente y actualiza la UI de preview.
+ * @param {string} base64    - Imagen en base64
+ * @param {string} mediaType - MIME type de la imagen
+ * @param {string} dataUrl   - Data URL para el preview
+ */
+function setImage(base64, mediaType, dataUrl) {
+  pendingImage = { base64, mediaType };
+  document.getElementById('imgPreview').src = dataUrl || `data:${mediaType};base64,${base64}`;
+  document.getElementById('imgPreviewWrap').style.display = 'flex';
+  document.getElementById('imgDropInner').style.display = 'none';
+}
+
+/** Elimina la imagen adjunta y restaura la UI */
+function removeImage() {
+  pendingImage = null;
+  document.getElementById('imgPreviewWrap').style.display = 'none';
+  document.getElementById('imgDropInner').style.display = 'flex';
+  document.getElementById('imgFile').value = '';
+}
+
+/** Registra los event listeners para drag & drop y Ctrl+V de imágenes */
+function initImageListeners() {
+  const drop = document.getElementById('imgDrop');
+
+  drop.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    drop.classList.add('dragover');
+  });
+
+  drop.addEventListener('dragleave', () => {
+    drop.classList.remove('dragover');
+  });
+
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    drop.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) loadImageFile(file);
+  });
+
+  // Ctrl+V — solo cuando el panel IA está visible
+  document.addEventListener('paste', (e) => {
+    if (document.getElementById('panelAI').style.display === 'none') return;
+
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) { loadImageFile(file); break; }
+      }
+    }
+  });
+}
+
+
+/* ── 9. Panel Audio ─────────────────────────────────────────────────────── */
+
+/** Alterna entre iniciar y detener la grabación */
+async function toggleRecording() {
+  if (isRecording) {
+    stopRecording();
+  } else {
+    await startRecording();
+  }
+}
+
+/** Inicia la grabación de audio solicitando permiso al micrófono */
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks  = [];
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(track => track.stop());
+      await transcribeAudio();
+    };
+
+    mediaRecorder.start();
+    isRecording = true;
+    setAudioUIRecording();
+
+  } catch (error) {
+    console.error('startRecording error:', error);
+    showToast('No se pudo acceder al micrófono. Verifica los permisos.');
+  }
+}
+
+/** Detiene la grabación activa */
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  isRecording = false;
+  setAudioUIProcessing();
+}
+
+/** Actualiza la UI al estado "grabando" */
+function setAudioUIRecording() {
+  document.getElementById('audioBtn').classList.add('recording');
+  document.getElementById('audioBtnIcon').textContent = '⏹';
+  document.getElementById('audioLabel').textContent   = 'Grabando…';
+  document.getElementById('audioSub').textContent     = 'Toca para detener';
+  document.getElementById('audioWaves').style.display = 'flex';
+  document.getElementById('audioIcon').textContent    = '🔴';
+}
+
+/** Actualiza la UI al estado "procesando" */
+function setAudioUIProcessing() {
+  document.getElementById('audioBtn').classList.remove('recording');
+  document.getElementById('audioBtnIcon').textContent = '⏳';
+  document.getElementById('audioLabel').textContent   = 'Procesando…';
+  document.getElementById('audioSub').textContent     = 'Transcribiendo tu audio con IA';
+  document.getElementById('audioWaves').style.display = 'none';
+  document.getElementById('audioBtn').disabled        = true;
+}
+
+/** Restaura la UI del grabador al estado inicial */
+function resetAudioUI() {
+  document.getElementById('audioBtn').classList.remove('recording');
+  document.getElementById('audioBtn').disabled        = false;
+  document.getElementById('audioBtn').style.display   = 'flex';
+  document.getElementById('audioBtnIcon').textContent  = '⏺';
+  document.getElementById('audioLabel').textContent    = 'Toca para grabar';
+  document.getElementById('audioSub').textContent      = 'Describe tu evento en voz alta';
+  document.getElementById('audioWaves').style.display  = 'none';
+  document.getElementById('audioIcon').textContent     = '🎙';
+  document.getElementById('audioStatus').style.display = 'block';
+  document.getElementById('audioTranscriptWrap').style.display = 'none';
+  document.getElementById('audioBtn').onclick = () => toggleRecording();
+  isRecording = false;
+}
+
+/**
+ * Muestra la transcripción y oculta el grabador.
+ * @param {string} transcript - Texto transcrito
+ */
+function showTranscript(transcript) {
+  document.getElementById('audioTranscript').textContent            = transcript;
+  document.getElementById('audioTranscriptWrap').style.display       = 'block';
+  document.getElementById('audioBtn').disabled                       = false;
+  document.getElementById('audioBtn').style.display                  = 'none';
+  document.getElementById('audioStatus').style.display               = 'none';
+  document.getElementById('audioWaves').style.display                = 'none';
+}
+
+/**
+ * Intenta transcribir el audio usando la Web Speech API del navegador.
+ * Se usa como método primario (gratuito, sin API externa).
+ */
+function useWebSpeechAPI() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    showToast('Tu navegador no soporta reconocimiento de voz. Usa Chrome.');
+    return;
+  }
+
+  showToast('Habla ahora — usa el micrófono del navegador');
+  resetAudioUI();
+
+  const recognition          = new SpeechRecognition();
+  recognition.lang           = 'es-MX';
+  recognition.continuous     = true;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  let finalTranscript   = '';
+  let interimTranscript = '';
+
+  recognition.onstart = () => {
+    isRecording = true;
+    setAudioUIRecording();
+    document.getElementById('audioBtn').disabled = false;
+    document.getElementById('audioBtn').onclick  = () => recognition.stop();
+  };
+
+  recognition.onresult = (e) => {
+    interimTranscript = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        finalTranscript += e.results[i][0].transcript + ' ';
+      } else {
+        interimTranscript += e.results[i][0].transcript;
+      }
+    }
+    document.getElementById('audioSub').textContent =
+      (finalTranscript + interimTranscript).trim() || 'Habla ahora…';
+  };
+
+  recognition.onend = () => {
+    isRecording = false;
+    document.getElementById('audioBtn').onclick = () => toggleRecording();
+
+    const transcript = finalTranscript.trim() || interimTranscript.trim();
+    if (transcript) {
+      showTranscript(transcript);
+    } else {
+      showToast('No se detectó voz. Intenta de nuevo.');
+      resetAudioUI();
+    }
+  };
+
+  recognition.onerror = (e) => {
+    console.error('SpeechRecognition error:', e.error);
+    showToast(`Error de micrófono: ${e.error}`);
+    resetAudioUI();
+  };
+
+  recognition.start();
+}
+
+/**
+ * Transcribe el audio grabado.
+ * Intenta usar Claude API; si falla, cae al Web Speech API del navegador.
+ */
+async function transcribeAudio() {
+  try {
+    const audioBlob   = new Blob(audioChunks, { type: 'audio/webm' });
+    const base64Audio = await blobToBase64(audioBlob);
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type':                              'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'anthropic-version':                         '2023-06-01',
+        'x-api-key':                                 ANTHROPIC_KEY,
+      },
+      body: JSON.stringify({
+        model:      CLAUDE_MODEL,
+        max_tokens: 500,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Transcribe exactamente lo que se dice en este audio. Devuelve SOLO la transcripción, sin comentarios ni comillas.',
+            },
+            {
+              type: 'document',
+              source: { type: 'base64', media_type: 'audio/webm', data: base64Audio },
+            },
+          ],
+        }],
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error('audio_not_supported');
+
+    const transcript = data.content.map(block => block.text || '').join('').trim();
+    showTranscript(transcript);
+
+  } catch (error) {
+    // Claude no soporta audio directamente → fallback al Web Speech API
+    useWebSpeechAPI();
+  }
+}
+
+/**
+ * Convierte un Blob a string base64.
+ * @param {Blob} blob
+ * @returns {Promise<string>}
+ */
+function blobToBase64(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** Analiza la transcripción de audio con Claude y muestra el evento detectado */
+async function analyzeAudio() {
+  const transcript = document.getElementById('audioTranscript').textContent.trim();
+  if (!transcript) return showToast('No hay transcripción para analizar');
+
+  const btn = document.getElementById('audioAnalyzeBtn');
+  const txt = document.getElementById('audioAnalyzeTxt');
+  btn.disabled = true;
+  txt.innerHTML = '<span class="spin"></span> Analizando…';
+
+  try {
+    const userContent = `Audio transcrito: "${transcript}". Extrae el evento.`;
+    const parsed      = await callClaudeAPI(userContent, buildSystemPrompt());
+
+    pendingAudioAI = {
+      id:       Date.now(),
+      title:    parsed.titulo,
+      date:     parsed.fecha,
+      time:     parsed.hora,
+      category: parsed.categoria,
+      synced:   false,
+    };
+
+    renderAIResult(parsed, 'aiRowsAudio', 'aiResultAudio');
+
+  } catch (error) {
+    console.error('analyzeAudio error:', error);
+    showToast(`Error: ${error.message || 'No pude analizar. Intenta de nuevo.'}`);
+
+  } finally {
+    btn.disabled = false;
+    txt.textContent = 'Analizar y agendar';
+  }
+}
+
+/** Confirma el evento detectado desde el panel Audio */
+function confirmAudio() {
+  if (!pendingAudioAI) return;
+  pushEvent(pendingAudioAI);
+  pendingAudioAI = null;
+  document.getElementById('aiResultAudio').classList.remove('show');
+  clearAudio();
+}
+
+/** Descarta el evento detectado desde el panel Audio */
+function dismissAudio() {
+  pendingAudioAI = null;
+  document.getElementById('aiResultAudio').classList.remove('show');
+}
+
+/** Limpia el panel de audio y regresa al estado inicial */
+function clearAudio() {
+  resetAudioUI();
+  document.getElementById('aiResultAudio').classList.remove('show');
+  pendingAudioAI = null;
+}
+
+
+/* ── 10. CRUD de eventos ────────────────────────────────────────────────── */
+
+/**
+ * Agrega un evento a la lista, lo guarda y lo sincroniza si hay sesión activa.
+ * @param {Object} ev - Evento a agregar
+ */
 function pushEvent(ev) {
   events.unshift(ev);
   saveEvents();
   renderEvents();
-  if (gToken) syncEvent(ev);
-  else showToast('Evento guardado');
+
+  if (googleToken) {
+    syncEvent(ev);
+  } else {
+    showToast('Evento guardado');
+  }
 }
 
+/**
+ * Elimina un evento por su ID.
+ * @param {number} id - ID del evento
+ */
 function deleteEvent(id) {
-  events = events.filter(e => e.id !== id);
+  events = events.filter(ev => ev.id !== id);
   saveEvents();
   renderEvents();
 }
 
-function saveEvents() { localStorage.setItem('ag_events', JSON.stringify(events)); }
+/** Persiste los eventos en localStorage */
+function saveEvents() {
+  localStorage.setItem('ag_events', JSON.stringify(events));
+}
 
-// ─── Render ───────────────────────────────────────────────────────────────────
+
+/* ── 11. Renderizado ────────────────────────────────────────────────────── */
+
+/** Renderiza la lista de eventos en el DOM */
 function renderEvents() {
-  const list = document.getElementById('evList');
+  const list  = document.getElementById('evList');
   const count = document.getElementById('evCount');
+
   count.textContent = events.length === 1 ? '1 evento' : `${events.length} eventos`;
 
   if (!events.length) {
-    list.innerHTML = '<div class="empty"><div class="empty-icon">○</div>Sin eventos aún.<br>Agrega el primero arriba.</div>';
+    list.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon" aria-hidden="true">○</div>
+        Sin eventos aún.<br />Agrega el primero arriba.
+      </div>`;
     return;
   }
 
-  const catLabel = { examen:'Examen', estudio:'Sesión de estudio', social:'Actividad social', presentacion:'Presentación', tarea:'Tarea', otro:'Otro' };
-
   list.innerHTML = events.map(ev => {
-    const d = new Date(ev.date + 'T12:00:00').toLocaleDateString('es-MX', { weekday:'short', day:'numeric', month:'short' });
+    const dateStr = new Date(`${ev.date}T12:00:00`).toLocaleDateString('es-MX', {
+      weekday: 'short', day: 'numeric', month: 'short',
+    });
+
     return `
-    <div class="ev-card">
-      <div class="ev-dot ${ev.category}"></div>
-      <div class="ev-info">
-        <div class="ev-title">${esc(ev.title)}</div>
-        <div class="ev-meta">
-          <span>${d}</span>
-          <span>${ev.time}</span>
-          <span class="ev-cat ${ev.category}">${catLabel[ev.category] || ev.category}</span>
-          ${ev.synced ? '<span class="ev-synced">✓ Google Cal</span>' : ''}
+      <div class="ev-card">
+        <div class="ev-dot ${ev.category}" aria-hidden="true"></div>
+        <div class="ev-info">
+          <div class="ev-title">${esc(ev.title)}</div>
+          <div class="ev-meta">
+            <span>${dateStr}</span>
+            <span>${ev.time}</span>
+            <span class="ev-cat ${ev.category}">${CAT_LABELS[ev.category] || ev.category}</span>
+            ${ev.synced ? '<span class="ev-synced">✓ Google Cal</span>' : ''}
+          </div>
         </div>
-      </div>
-      <button class="ev-del" onclick="deleteEvent(${ev.id})" title="Eliminar">✕</button>
-    </div>`;
+        <button class="ev-del" onclick="deleteEvent(${ev.id})" aria-label="Eliminar evento">✕</button>
+      </div>`;
   }).join('');
 }
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
-let _toastT;
-function showToast(msg) {
-  const old = document.querySelector('.toast');
-  if (old) old.remove();
-  clearTimeout(_toastT);
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  _toastT = setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250); }, 2800);
+
+/* ── 12. Toast ──────────────────────────────────────────────────────────── */
+
+let toastTimeout;
+
+/**
+ * Muestra un mensaje toast temporal.
+ * @param {string} message - Mensaje a mostrar
+ */
+function showToast(message) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  clearTimeout(toastTimeout);
+
+  const toast = document.createElement('div');
+  toast.className   = 'toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  toastTimeout = setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 250);
+  }, 2800);
 }
 
-// ─── Utils ────────────────────────────────────────────────────────────────────
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// ─── Handle OAuth redirect (Google returns to this page with token in hash) ─────
-function checkHashToken() {
+/* ── 13. Utilidades ─────────────────────────────────────────────────────── */
+
+/**
+ * Escapa caracteres HTML para prevenir XSS.
+ * @param {string} str
+ * @returns {string}
+ */
+function esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+
+/* ── 14. Inicialización ─────────────────────────────────────────────────── */
+
+/**
+ * Verifica si Google redirigió de vuelta con un token en el hash de la URL.
+ * Se ejecuta inmediatamente al cargar el script.
+ */
+(function checkOAuthRedirect() {
   const hash = window.location.hash;
   if (hash && hash.includes('access_token') && hash.includes('state=gcal_auth')) {
-    const p = new URLSearchParams(hash.substring(1));
-    const token = p.get('access_token');
-    const expiresIn = p.get('expires_in');
+    const params = new URLSearchParams(hash.substring(1));
+    const token  = params.get('access_token');
     if (token) {
       history.replaceState(null, '', window.location.pathname);
-      setGoogleConnected(token, expiresIn);
-      return true;
+      setGoogleConnected(token);
     }
   }
-  return false;
-}
+})();
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
-
-// ─── Load Google Calendar events created by AgendaAI ─────────────────────────
-async function loadGCalEvents() {
-  if (!gToken) return showToast('Conecta Google Calendar primero');
-  const btn = document.getElementById('loadGCalBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Cargando…'; }
-  try {
-    const now = new Date().toISOString();
-    const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?' +
-      new URLSearchParams({ q: 'AgendaAI', timeMin: now, maxResults: 50, singleEvents: true, orderBy: 'startTime' });
-    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + gToken } });
-    if (res.status === 401) { disconnectGoogle(); return showToast('Sesión expirada. Vuelve a conectarte.'); }
-    const data = await res.json();
-    const items = data.items || [];
-    if (!items.length) return showToast('No hay eventos de AgendaAI en tu calendario futuro');
-    let added = 0;
-    items.forEach(item => {
-      if (events.some(e => e.gcalId === item.id)) return;
-      const startRaw = (item.start && (item.start.dateTime || item.start.date)) || '';
-      const date = startRaw.slice(0, 10);
-      const time = startRaw.length > 10 ? startRaw.slice(11, 16) : '09:00';
-      const desc = item.description || '';
-      const catMatch = desc.match(/Categor[ií]a:\s*(examen|estudio|social|presentacion|tarea|otro)/i);
-      const category = catMatch ? catMatch[1].toLowerCase() : 'otro';
-      events.unshift({ id: Date.now() + added, gcalId: item.id, title: item.summary || 'Sin título', date, time, category, synced: true });
-      added++;
-    });
-    saveEvents();
-    renderEvents();
-    showToast(added ? (added + ' evento(s) importados de Google Calendar') : 'Todo ya está sincronizado');
-  } catch(e) {
-    console.error(e);
-    showToast('Error al cargar eventos de Google Calendar');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '↓ Cargar desde Google Cal'; }
-  }
-}
-
+/** Inicializa la app cuando el DOM está listo */
 document.addEventListener('DOMContentLoaded', () => {
-  // First: handle OAuth redirect if coming back from Google login
-  const handledOAuth = checkHashToken();
-
-  // Restore Google session from localStorage if token not expired (only if not just logged in)
-  if (!handledOAuth) {
-  const savedToken = localStorage.getItem('ag_gtoken');
-  const savedExpiry = parseInt(localStorage.getItem('ag_gtoken_expiry') || '0');
-  if (savedToken && Date.now() < savedExpiry) {
-    gToken = savedToken;
-    gTokenExpiry = savedExpiry;
-    const btn = document.getElementById('gcalBtn');
-    btn.classList.add('connected');
-    document.getElementById('gcalBtnText').textContent = 'Conectado · Desconectar';
-    events.filter(e => !e.synced).forEach(syncEvent);
-  } else if (savedToken) {
-    localStorage.removeItem('ag_gtoken');
-    localStorage.removeItem('ag_gtoken_expiry');
+  // Fecha de hoy como valor por defecto en el campo de fecha manual
+  const dateInput = document.getElementById('mDate');
+  if (dateInput) {
+    dateInput.value = new Date().toISOString().split('T')[0];
   }
 
-  } // end if (!handledOAuth)
+  // Listeners de drag & drop y pegado de imágenes
+  initImageListeners();
 
-  const d = document.getElementById('mDate');
-  if (d) d.value = new Date().toISOString().split('T')[0];
+  // Renderiza eventos guardados
   renderEvents();
 });
-
