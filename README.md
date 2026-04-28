@@ -2,6 +2,24 @@
 
 AgendaAI con Gemini para crear eventos desde texto, imagen y audio.
 
+---
+
+USO RÁPIDO
+
+Enlace público (app en producción): https://calendaria.onrender.com/
+
+Qué hace:
+- Extrae eventos desde texto, imagen o audio con la API de Gemini.
+- Permite crear eventos manuales y sincronizarlos con Google Calendar.
+
+Cómo usar la app (resumen):
+1. Abre la URL pública: https://calendaria.onrender.com/
+2. Pestaña "Manual": crear eventos manualmente (título, fecha, hora, categoría, avisos).
+3. Pestaña "Texto / Imagen": arrastra o selecciona una imagen y/o escribe la descripción → "Analizar con Gemini" → revisar → Agendar.
+4. Pestaña "Audio": pulsa para comenzar a grabar (o usar dictado del navegador) → habla el evento indicando título, fecha y hora → revisar y Agendar.
+5. Para sincronizar con Google Calendar: pulsa "Vincular Calendar" y autoriza con tu cuenta Google.
+
+
 ## Requisitos
 
 - Node.js 18 o superior
