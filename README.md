@@ -29,6 +29,24 @@ Luego abre:
 
 http://localhost:3000
 
+## Despliegue en Render
+
+Este proyecto puede publicarse como un Web Service de Node.js.
+
+### Variables de entorno
+
+- `API_KEY_GEMINI`
+- `GOOGLE_AUTH_API_KEY`
+- `GEMINI_MODEL`
+
+### Pasos rápidos
+
+1. Sube el repositorio a GitHub.
+2. Crea un Web Service en Render y conecta este repo.
+3. Usa el comando de inicio: `npm start`.
+4. Añade las variables de entorno en el panel de Render.
+5. Espera a que Render termine el build y abre la URL pública.
+
 ## Importante
 
 - No subas [.env](.env) al repositorio.

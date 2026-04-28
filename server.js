@@ -76,6 +76,10 @@ app.get('/api/config', (req, res) => {
   });
 });
 
+app.get('/health', (req, res) => {
+  res.status(200).json({ ok: true });
+});
+
 app.post('/api/gemini', async (req, res) => {
   try {
     const { systemPrompt, partsContent } = req.body || {};
