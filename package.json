@@ -1,0 +1,15 @@
+{
+  "name": "calendaria",
+  "version": "1.0.0",
+  "description": "AgendaAI con Gemini para extraer eventos desde texto, imagen y audio.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

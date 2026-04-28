@@ -3,98 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AgendaAI</title>
+  <title>AgendaAI con Gemini</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Figtree:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
- 
-  <!-- ══ Modal: Configurar Google Calendar ══════════════════════════════════ -->
-  <div class="overlay hidden" id="oauthModal">
-    <div class="modal">
-      <h2 class="modal-title">Configurar Google Calendar</h2>
-      <p class="modal-sub">
-        Ingresa tu Client ID de OAuth 2.0. Al conectar se abrirá una ventana
-        de Google — <strong>permite los popups</strong> si tu navegador los bloquea.
-      </p>
- 
-      <ol class="steps">
-        <li class="step">
-          <div class="step-num">1</div>
-          <span>Ve a <strong>console.cloud.google.com</strong> → crea un proyecto.</span>
-        </li>
-        <li class="step">
-          <div class="step-num">2</div>
-          <span>Activa la <strong>Google Calendar API</strong>.</span>
-        </li>
-        <li class="step">
-          <div class="step-num">3</div>
-          <span><strong>Credenciales → OAuth 2.0</strong> → tipo "Aplicación web".</span>
-        </li>
-        <li class="step">
-          <div class="step-num">4</div>
-          <span>
-            En "Orígenes JS autorizados" agrega <code>https://aiirvizionz.github.io</code>.
-            Copia el <code>Client ID</code>.
-          </span>
-        </li>
-      </ol>
- 
-      <div class="modal-field">
-        <label class="field-label" for="clientIdInput">Google OAuth Client ID</label>
-        <input
-          type="text"
-          id="clientIdInput"
-          placeholder="xxxxxxxx.apps.googleusercontent.com"
-        />
-      </div>
- 
-      <div class="modal-btns">
-        <button class="btn btn-ghost" style="flex:1" onclick="closeModal()">Cancelar</button>
-        <button class="btn btn-primary" style="flex:2" onclick="saveAndAuth()">Guardar y conectar →</button>
-      </div>
-    </div>
-  </div>
- 
-  <!-- ══ Página principal ════════════════════════════════════════════════════ -->
   <main class="page">
- 
-    <!-- Topbar -->
     <header class="topbar">
-      <div class="logo">AgendaAI <sup>Beta</sup></div>
- 
-      <button class="gcal-btn" id="gcalBtn" onclick="handleGCalBtn()">
-        <svg width="16" height="16" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-          <path d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.5-.4-3.5z" fill="#FFC107"/>
-          <path d="M6.3 14.7l6.6 4.8C14.5 16 19 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" fill="#FF3D00"/>
-          <path d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35.3 26.8 36 24 36c-5.3 0-9.7-3.1-11.3-7.5l-6.5 5C9.6 39.6 16.3 44 24 44z" fill="#4CAF50"/>
-          <path d="M43.6 20.5H42V20H24v8h11.3c-.8 2.1-2.2 3.9-4 5.2l6.2 5.2C37 36.7 44 31 44 24c0-1.2-.1-2.5-.4-3.5z" fill="#1976D2"/>
-        </svg>
-        <span id="gcalBtnText">Vincular Google Calendar</span>
-        <div class="gcal-dot" aria-hidden="true"></div>
-      </button>
+      <div class="logo">AgendaAI <sup>Gemini</sup></div>
+      <div style="display: flex; gap: 10px;">
+        <button class="gcal-btn" id="gcalBtn" onclick="handleGCalBtn()">
+          <span id="gcalBtnText">Vincular Calendar</span>
+          <div class="gcal-dot" aria-hidden="true"></div>
+        </button>
+      </div>
     </header>
- 
-    <!-- ── Sección: Agregar evento ────────────────────────────────────────── -->
+
     <section aria-label="Agregar evento">
       <p class="section-label">Agregar evento</p>
- 
+
       <div class="card">
         <div class="tabs" role="tablist">
-          <button class="tab active" id="tabManual" role="tab" aria-selected="true"  onclick="setTab('manual')">Manual</button>
-          <button class="tab"        id="tabAI"     role="tab" aria-selected="false" onclick="setTab('ai')">Texto libre · IA</button>
-          <button class="tab"        id="tabAudio"  role="tab" aria-selected="false" onclick="setTab('audio')"><span aria-hidden="true">🎙</span> Audio</button>
+          <button class="tab active" id="tabManual" role="tab" onclick="setTab('manual')">Manual</button>
+          <button class="tab"        id="tabAI"     role="tab" onclick="setTab('ai')">Texto / Imagen</button>
+          <button class="tab"        id="tabAudio"  role="tab" onclick="setTab('audio')">🎙 Audio</button>
         </div>
- 
-        <!-- Panel: Manual -->
+
         <div class="form-body" id="panelManual" role="tabpanel">
           <div class="field">
             <label class="field-label" for="mTitle">Título</label>
             <input type="text" id="mTitle" placeholder="Ej. Examen de Cálculo…" autocomplete="off" />
           </div>
- 
+
           <div class="field field-row">
             <div>
               <label class="field-label" for="mDate">Fecha</label>
@@ -105,144 +47,188 @@
               <input type="time" id="mTime" />
             </div>
           </div>
- 
+          
+          <div class="field">
+            <label class="field-label">Aviso previo</label>
+            <div class="reminder-options">
+              <label class="reminder-option selected">
+                <input type="checkbox" id="mRem10" name="manualReminderGroup" value="10" checked onchange="updateReminderOption(this)" />
+                <span>10 minutos</span>
+              </label>
+
+              <label class="reminder-option">
+                <input type="checkbox" id="mRem60" name="manualReminderGroup" value="60" onchange="updateReminderOption(this)" />
+                <span>1 hora</span>
+              </label>
+
+              <label class="reminder-option">
+                <input type="checkbox" id="mRem360" name="manualReminderGroup" value="360" onchange="updateReminderOption(this)" />
+                <span>6 horas</span>
+              </label>
+
+              <label class="reminder-option">
+                <input type="checkbox" id="mRem1440" name="manualReminderGroup" value="1440" onchange="updateReminderOption(this)" />
+                <span>1 día</span>
+              </label>
+
+              <label class="reminder-option">
+                <input type="checkbox" id="mRem10080" name="manualReminderGroup" value="10080" onchange="updateReminderOption(this)" />
+                <span>1 semana</span>
+              </label>
+            </div>
+          </div>
+
           <div class="field">
             <label class="field-label">Categoría</label>
             <div class="chips" id="manChips">
               <button class="chip sel-examen"  data-cat="examen"       onclick="pickCat(this)">Examen</button>
-              <button class="chip"             data-cat="estudio"      onclick="pickCat(this)">Sesión de estudio</button>
-              <button class="chip"             data-cat="social"       onclick="pickCat(this)">Actividad social</button>
+              <button class="chip"             data-cat="estudio"      onclick="pickCat(this)">Estudio</button>
+              <button class="chip"             data-cat="social"       onclick="pickCat(this)">Social</button>
               <button class="chip"             data-cat="presentacion" onclick="pickCat(this)">Presentación</button>
               <button class="chip"             data-cat="tarea"        onclick="pickCat(this)">Tarea</button>
               <button class="chip"             data-cat="otro"         onclick="pickCat(this)">Otro</button>
             </div>
           </div>
- 
+
           <div class="btn-row">
             <button class="btn btn-primary" onclick="addManual()">Agregar evento</button>
           </div>
         </div>
- 
-        <!-- Panel: Texto libre · IA -->
+
         <div class="form-body" id="panelAI" role="tabpanel" style="display:none">
- 
-          <div class="img-drop" id="imgDrop">
+          <div class="img-drop" id="imgDrop" ondrop="handleImageDrop(event)" ondragover="event.preventDefault()" ondragleave="event.preventDefault()">
             <input type="file" id="imgFile" accept="image/*" style="display:none" onchange="handleFileInput(event)" />
- 
             <div class="img-drop-inner" id="imgDropInner">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="1.5"
-                   stroke-linecap="round" stroke-linejoin="round"
-                   style="color:var(--gray-400)" aria-hidden="true">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
               <span class="img-drop-text">Arrastra una imagen aquí</span>
-              <span class="img-drop-sub">
-                o
-                <button class="img-link" onclick="document.getElementById('imgFile').click()">
-                  selecciona archivo
-                </button>
-                · Ctrl+V para pegar
-              </span>
+              <span class="img-drop-sub">o <button class="img-link" onclick="document.getElementById('imgFile').click()">selecciona archivo</button></span>
             </div>
- 
             <div class="img-preview-wrap" id="imgPreviewWrap" style="display:none">
               <img id="imgPreview" class="img-preview" alt="Imagen adjunta" />
-              <button class="img-remove" onclick="removeImage()" aria-label="Quitar imagen">✕</button>
-              <span class="img-preview-label">Imagen lista para analizar</span>
+              <button class="img-remove" onclick="removeImage()">✕</button>
+              <span class="img-preview-label">Imagen lista</span>
             </div>
           </div>
- 
+
           <div class="field">
-            <label class="field-label" for="aiText">
-              Descripción adicional
-              <span style="font-weight:400; color:var(--gray-400)">(opcional si hay imagen)</span>
-            </label>
+            <label class="field-label" for="aiText">Descripción adicional</label>
             <div class="ai-wrap">
-              <textarea
-                id="aiText"
-                placeholder="Ej: Tengo examen de física el viernes 20 a las 9am&#10;&#10;o pega una foto de tu horario, tarea o notificación…"
-              ></textarea>
-              <span class="ai-tag" aria-hidden="true">IA</span>
+              <textarea id="aiText" placeholder="Ej: Tengo examen de física el viernes 20 a las 9am…"></textarea>
+              <span class="ai-tag">✨ Gemini</span>
             </div>
           </div>
- 
+
           <div class="btn-row">
-            <button class="btn btn-primary" id="aiBtn" onclick="analyzeAI()">
-              <span id="aiTxt">Analizar y agendar</span>
+            <button class="btn btn-primary gemini-btn" id="aiBtn" onclick="analyzeAI()">
+              <span id="aiTxt">Analizar con Gemini</span>
             </button>
           </div>
- 
+
           <div class="ai-result" id="aiResult" aria-live="polite">
             <p class="ai-result-label">Evento detectado</p>
             <div class="ai-rows" id="aiRows"></div>
-            <div class="btn-row" style="margin-top:16px">
+            
+            <div class="field" style="margin-top: 20px;">
+              <label class="field-label">Aviso previo</label>
+              <div class="reminder-options">
+                  <label class="reminder-option selected">
+                    <input type="checkbox" id="aiRem10" name="aiReminderGroup" value="10" checked onchange="updateReminderOption(this)" />
+                    <span>10 minutos</span>
+                  </label>
+                
+                  <label class="reminder-option">
+                    <input type="checkbox" id="aiRem60" name="aiReminderGroup" value="60" onchange="updateReminderOption(this)" />
+                    <span>1 hora</span>
+                  </label>
+                
+                  <label class="reminder-option">
+                    <input type="checkbox" id="aiRem360" name="aiReminderGroup" value="360" onchange="updateReminderOption(this)" />
+                    <span>6 horas</span>
+                  </label>
+                
+                  <label class="reminder-option">
+                    <input type="checkbox" id="aiRem1440" name="aiReminderGroup" value="1440" onchange="updateReminderOption(this)" />
+                    <span>1 día</span>
+                  </label>
+                
+                  <label class="reminder-option">
+                    <input type="checkbox" id="aiRem10080" name="aiReminderGroup" value="10080" onchange="updateReminderOption(this)" />
+                    <span>1 semana</span>
+                  </label>
+              </div>
+            </div>
+
+            <div class="btn-row" style="margin-top:20px">
               <button class="btn btn-ghost" onclick="dismissAI()">Cancelar</button>
-              <button class="btn btn-primary" onclick="confirmAI()">Confirmar →</button>
+              <button class="btn btn-primary" onclick="confirmAI()">Agendar →</button>
             </div>
           </div>
         </div>
- 
-        <!-- Panel: Audio -->
+
         <div class="form-body" id="panelAudio" role="tabpanel" style="display:none">
           <div class="audio-recorder">
             <div class="audio-status" id="audioStatus">
-              <div class="audio-icon" id="audioIcon" aria-hidden="true">🎙</div>
-              <p class="audio-label" id="audioLabel">Toca para grabar</p>
-              <p class="audio-sub"   id="audioSub">Describe tu evento en voz alta</p>
+              <div class="audio-icon" id="audioIcon">🎙</div>
+              <p class="audio-label" id="audioLabel">Toca para hablar</p>
+              <p class="audio-sub" id="audioSub">Cuéntale a Gemini sobre tu evento</p>
             </div>
- 
-            <div class="audio-waves" id="audioWaves" style="display:none" aria-hidden="true">
-              <span></span><span></span><span></span><span></span><span></span>
-            </div>
- 
-            <button class="audio-btn" id="audioBtn" onclick="toggleRecording()" aria-label="Grabar audio">
-              <span id="audioBtnIcon" aria-hidden="true">⏺</span>
+
+            <button class="audio-btn" id="audioBtn" onclick="toggleRecording()">
+              <span id="audioBtnIcon">⏺</span>
             </button>
- 
-            <div class="audio-transcript-wrap" id="audioTranscriptWrap" style="display:none">
-              <p class="section-label" style="margin-bottom:8px">Transcripción</p>
-              <div class="audio-transcript" id="audioTranscript" aria-live="polite"></div>
-              <div class="btn-row" style="margin-top:16px">
-                <button class="btn btn-ghost" onclick="clearAudio()">Volver a grabar</button>
-                <button class="btn btn-primary" id="audioAnalyzeBtn" onclick="analyzeAudio()">
-                  <span id="audioAnalyzeTxt">Analizar y agendar</span>
-                </button>
+          </div>
+
+          <div class="ai-result" id="aiResultAudio" aria-live="polite">
+            <p class="ai-result-label">Evento detectado por voz</p>
+            <div class="ai-rows" id="aiRowsAudio"></div>
+            
+            <div class="field" style="margin-top: 20px;">
+              <label class="field-label">Aviso previo</label>
+              <div class="reminder-options">
+                  <label class="reminder-option selected">
+                    <input type="checkbox" id="audioRem10" name="audioReminderGroup" value="10" checked onchange="updateReminderOption(this)" />
+                    <span>10 minutos</span>
+                  </label>
+                
+                  <label class="reminder-option">
+                    <input type="checkbox" id="audioRem60" name="audioReminderGroup" value="60" onchange="updateReminderOption(this)" />
+                    <span>1 hora</span>
+                  </label>
+                
+                  <label class="reminder-option">
+                    <input type="checkbox" id="audioRem360" name="audioReminderGroup" value="360" onchange="updateReminderOption(this)" />
+                    <span>6 horas</span>
+                  </label>
+                
+                  <label class="reminder-option">
+                    <input type="checkbox" id="audioRem1440" name="audioReminderGroup" value="1440" onchange="updateReminderOption(this)" />
+                    <span>1 día</span>
+                  </label>
+                
+                  <label class="reminder-option">
+                    <input type="checkbox" id="audioRem10080" name="audioReminderGroup" value="10080" onchange="updateReminderOption(this)" />
+                    <span>1 semana</span>
+                  </label>
               </div>
             </div>
-          </div>
- 
-          <div class="ai-result" id="aiResultAudio" aria-live="polite">
-            <p class="ai-result-label">Evento detectado</p>
-            <div class="ai-rows" id="aiRowsAudio"></div>
-            <div class="btn-row" style="margin-top:16px">
+
+            <div class="btn-row" style="margin-top:20px">
               <button class="btn btn-ghost" onclick="dismissAudio()">Cancelar</button>
-              <button class="btn btn-primary" onclick="confirmAudio()">Confirmar →</button>
+              <button class="btn btn-primary" onclick="confirmAudio()">Agendar →</button>
             </div>
           </div>
         </div>
       </div>
     </section>
- 
-    <!-- ── Sección: Próximos eventos ─────────────────────────────────────── -->
-    <section class="events-section" aria-label="Próximos eventos">
+
+    <section class="events-section">
       <div class="events-header">
-        <p class="section-label" style="margin:0">Próximos eventos</p>
+        <p class="section-label">Tus eventos</p>
         <span class="events-count" id="evCount">0 eventos</span>
       </div>
-      <div class="events-list" id="evList">
-        <div class="empty">
-          <div class="empty-icon" aria-hidden="true">○</div>
-          Sin eventos aún.<br />Agrega el primero arriba.
-        </div>
-      </div>
+      <div class="events-list" id="evList"></div>
     </section>
- 
   </main>
- 
+
   <script src="app.js"></script>
 </body>
 </html>
- 
