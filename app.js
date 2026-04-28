@@ -5,7 +5,7 @@
 /* ── Configuración de APIs (Reemplaza con tus datos) ────────────────────── */
 let GOOGLE_CLIENT_ID = '';
 
-const OAUTH_REDIRECT_URI = 'https://aiirvizionz.github.io/CalendarIA/';
+const OAUTH_REDIRECT_URI = `${window.location.origin}/`;
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.events';
 
 /* ── Estado global ──────────────────────────────────────────────────────── */
