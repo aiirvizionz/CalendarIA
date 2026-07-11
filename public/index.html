@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0d12">
+  <meta name="description" content="CalendarIA convierte texto, imágenes y voz en eventos revisables para Google Calendar.">
+  <title>CalendarIA · Agenda inteligente</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="CalendarIA, inicio">
+      <span class="brand-mark" aria-hidden="true">C</span>
+      <span>Calendar<span class="brand-accent">IA</span></span>
+    </a>
+
+    <div class="account-area">
+      <div id="userChip" class="user-chip is-hidden" aria-live="polite">
+        <img id="userAvatar" class="user-avatar" alt="">
+        <span id="userName"></span>
+      </div>
+      <button id="authButton" class="button button-secondary" type="button">
+        <span id="authButtonText">Conectar Google</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="hero" aria-labelledby="heroTitle">
+      <p class="eyebrow">Tu agenda, sin capturar datos dos veces</p>
+      <h1 id="heroTitle">Convierte una idea, captura o nota de voz en un <em>evento listo.</em></h1>
+      <p class="hero-copy">CalendarIA extrae fecha, hora y contexto con Gemini. Tú revisas el resultado antes de enviarlo a Google Calendar.</p>
+      <div class="privacy-note">
+        <span class="privacy-dot" aria-hidden="true"></span>
+        La IA y Google Calendar solo se habilitan después de iniciar sesión. Los tokens permanecen cifrados en una cookie HttpOnly.
+      </div>
+    </section>
+
+    <section class="workspace" aria-label="Crear evento">
+      <div class="composer-card">
+        <div class="tabs" role="tablist" aria-label="Método de creación">
+          <button class="tab is-active" id="tabManual" type="button" role="tab" aria-selected="true" aria-controls="panelManual" data-tab="manual">Manual</button>
+          <button class="tab" id="tabAi" type="button" role="tab" aria-selected="false" aria-controls="panelAi" data-tab="ai">Texto o imagen</button>
+          <button class="tab" id="tabAudio" type="button" role="tab" aria-selected="false" aria-controls="panelAudio" data-tab="audio">Voz</button>
+        </div>
+
+        <div class="panel-wrap">
+          <section id="panelManual" class="panel" role="tabpanel" aria-labelledby="tabManual">
+            <form id="manualForm" novalidate>
+              <div class="field">
+                <label for="manualTitle">¿Qué tienes pendiente?</label>
+                <input id="manualTitle" name="title" type="text" maxlength="120" autocomplete="off" placeholder="Ej. Examen de redes" required>
+              </div>
+
+              <div class="field-grid">
+                <div class="field">
+                  <label for="manualDate">Fecha</label>
+                  <input id="manualDate" name="date" type="date" required>
+                </div>
+                <div class="field">
+                  <label for="manualTime">Hora</label>
+                  <input id="manualTime" name="time" type="time" required>
+                </div>
+              </div>
+
+              <fieldset class="field">
+                <legend>Categoría</legend>
+                <div id="categoryOptions" class="choice-grid choice-grid-categories">
+                  <label class="choice"><input type="radio" name="category" value="examen" checked><span>Examen</span></label>
+                  <label class="choice"><input type="radio" name="category" value="estudio"><span>Estudio</span></label>
+                  <label class="choice"><input type="radio" name="category" value="tarea"><span>Tarea</span></label>
+                  <label class="choice"><input type="radio" name="category" value="presentacion"><span>Presentación</span></label>
+                  <label class="choice"><input type="radio" name="category" value="social"><span>Social</span></label>
+                  <label class="choice"><input type="radio" name="category" value="otro"><span>Otro</span></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="field">
+                <legend>Avísame antes</legend>
+                <div class="choice-grid choice-grid-reminders" data-reminder-group="manual">
+                  <label class="choice"><input type="checkbox" value="10" checked><span>10 min</span></label>
+                  <label class="choice"><input type="checkbox" value="60"><span>1 hora</span></label>
+                  <label class="choice"><input type="checkbox" value="360"><span>6 horas</span></label>
+                  <label class="choice"><input type="checkbox" value="1440"><span>1 día</span></label>
+                  <label class="choice"><input type="checkbox" value="10080"><span>1 semana</span></label>
+                </div>
+              </fieldset>
+
+              <button class="button button-primary button-full" type="submit">Guardar evento</button>
+            </form>
+          </section>
+
+          <section id="panelAi" class="panel is-hidden" role="tabpanel" aria-labelledby="tabAi">
+            <div id="authGateAi" class="auth-gate is-hidden">
+              <span class="gate-icon" aria-hidden="true">✦</span>
+              <div><strong>Inicia sesión para usar Gemini</strong><p>Así protegemos la cuota de la API y asociamos límites de uso a una sesión real.</p></div>
+            </div>
+
+            <form id="aiForm" novalidate>
+              <div class="field">
+                <label for="aiText">Describe tu evento</label>
+                <textarea id="aiText" maxlength="3000" placeholder="Tengo examen de Redes el próximo martes a las 8:00"></textarea>
+                <div class="field-meta"><span>Puedes escribir con lenguaje natural</span><span id="aiCharacterCount">0/3000</span></div>
+              </div>
+
+              <div class="divider"><span>o agrega una imagen</span></div>
+
+              <label id="dropZone" class="drop-zone" for="imageInput">
+                <input id="imageInput" type="file" accept="image/jpeg,image/png,image/webp">
+                <span class="drop-icon" aria-hidden="true">↗</span>
+                <span id="dropTitle" class="drop-title">Suelta una captura aquí</span>
+                <span id="dropDescription" class="drop-description">JPG, PNG o WebP · máximo 4 MB</span>
+                <img id="imagePreview" class="image-preview is-hidden" alt="Vista previa de la imagen seleccionada">
+              </label>
+
+              <div class="form-actions">
+                <button id="removeImageButton" class="button button-ghost is-hidden" type="button">Quitar imagen</button>
+                <button id="analyzeButton" class="button button-primary" type="submit">Analizar con Gemini <span aria-hidden="true">✦</span></button>
+              </div>
+            </form>
+          </section>
+
+          <section id="panelAudio" class="panel is-hidden" role="tabpanel" aria-labelledby="tabAudio">
+            <div id="authGateAudio" class="auth-gate is-hidden">
+              <span class="gate-icon" aria-hidden="true">✦</span>
+              <div><strong>Inicia sesión para analizar voz</strong><p>La grabación se envía únicamente cuando terminas y confirmas el análisis.</p></div>
+            </div>
+
+            <div class="voice-stage">
+              <button id="recordButton" class="record-button" type="button" aria-label="Comenzar grabación">
+                <span id="recordIcon" aria-hidden="true">●</span>
+              </button>
+              <div class="voice-copy">
+                <h2 id="voiceTitle">Cuéntame qué necesitas agendar</h2>
+                <p id="voiceDescription">Menciona el evento, la fecha y la hora. Pulsa el botón para empezar.</p>
+              </div>
+              <div id="voiceWave" class="voice-wave" aria-hidden="true">
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
+            </div>
+          </section>
+
+          <section id="reviewPanel" class="review-panel is-hidden" aria-live="polite" aria-labelledby="reviewTitle">
+            <div class="review-heading">
+              <div><p class="eyebrow">Revisión humana</p><h2 id="reviewTitle">Confirma antes de agendar</h2></div>
+              <span class="ai-badge">Gemini</span>
+            </div>
+            <dl class="event-preview">
+              <div><dt>Título</dt><dd id="reviewEventTitle"></dd></div>
+              <div><dt>Fecha</dt><dd id="reviewEventDate"></dd></div>
+              <div><dt>Hora</dt><dd id="reviewEventTime"></dd></div>
+              <div><dt>Categoría</dt><dd id="reviewEventCategory"></dd></div>
+            </dl>
+            <fieldset class="field">
+              <legend>Avísame antes</legend>
+              <div class="choice-grid choice-grid-reminders" data-reminder-group="review">
+                <label class="choice"><input type="checkbox" value="10" checked><span>10 min</span></label>
+                <label class="choice"><input type="checkbox" value="60"><span>1 hora</span></label>
+                <label class="choice"><input type="checkbox" value="360"><span>6 horas</span></label>
+                <label class="choice"><input type="checkbox" value="1440"><span>1 día</span></label>
+                <label class="choice"><input type="checkbox" value="10080"><span>1 semana</span></label>
+              </div>
+            </fieldset>
+            <div class="form-actions">
+              <button id="cancelReviewButton" class="button button-ghost" type="button">Descartar</button>
+              <button id="confirmReviewButton" class="button button-primary" type="button">Guardar evento</button>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <aside class="events-card" aria-labelledby="eventsTitle">
+        <div class="events-heading">
+          <div><p class="eyebrow">Próximamente</p><h2 id="eventsTitle">Tus eventos</h2></div>
+          <span id="eventCount" class="count-badge">0</span>
+        </div>
+        <div id="eventsList" class="events-list"></div>
+        <div id="emptyState" class="empty-state">
+          <span class="empty-orbit" aria-hidden="true"></span>
+          <h3>Tu agenda empieza aquí</h3>
+          <p>Crea un evento manual o deja que Gemini extraiga los datos por ti.</p>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <template id="eventTemplate">
+    <article class="event-card">
+      <span class="event-accent" aria-hidden="true"></span>
+      <div class="event-content">
+        <div class="event-topline"><h3 class="event-title"></h3><span class="sync-badge"></span></div>
+        <p class="event-date"></p>
+        <div class="event-meta"><span class="event-category"></span><span class="event-reminders"></span></div>
+      </div>
+      <button class="icon-button delete-event" type="button" aria-label="Eliminar evento">×</button>
+    </article>
+  </template>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
