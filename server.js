@@ -88,8 +88,7 @@ function getTimeZone(req) {
 async function googleContext(req, res) {
   const context = await ensureAccessToken(req.session);
   if (context.refreshed) {
-    req.session = context.session;
-    setSession(res, context.session);
+    req.session = setSession(res, context.session);
   }
   return context.accessToken;
 }
@@ -160,7 +159,7 @@ app.get('/api/auth/google/start', (req, res, next) => {
   }
 });
 
-app.get('/api/auth/google/callback', async (req, res, next) => {
+app.get('/api/auth/google/callback', async (req, res) => {
   const oauthState = readOAuthState(req);
   clearOAuthState(res);
 
@@ -207,7 +206,7 @@ app.get('/api/auth/google/callback', async (req, res, next) => {
 
 app.post('/api/auth/logout', requireSession, requireCsrf, async (req, res) => {
   const token = req.session.refreshToken || req.session.accessToken;
-  clearSession(res);
+  clearSession(req, res);
   await revokeToken(token);
   res.status(204).end();
 });
@@ -264,12 +263,13 @@ app.delete('/api/calendar/events/:eventId', requireSession, requireCsrf, calenda
 app.use(express.static(publicDir, {
   dotfiles: 'deny',
   index: false,
-  maxAge: config.isProduction ? '1h' : 0,
+  maxAge: 0,
   etag: true,
 }));
 
 app.get('*', (req, res, next) => {
   if (!req.accepts('html')) return next();
+  res.setHeader('Cache-Control', 'no-cache');
   return res.sendFile(path.join(publicDir, 'index.html'));
 });
 
@@ -280,10 +280,14 @@ app.use((req, res) => {
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
 
-  const statusCode = Number(error.statusCode) || (error.type === 'entity.too.large' ? 413 : 500);
-  const code = error.code || (statusCode === 413 ? 'PAYLOAD_TOO_LARGE' : 'INTERNAL_ERROR');
+  const reportedStatus = Number(error.statusCode || error.status);
+  const statusCode = reportedStatus || (error.type === 'entity.too.large' ? 413 : 500);
+  const code = error.code
+    || (statusCode === 413 ? 'PAYLOAD_TOO_LARGE' : null)
+    || (error.type === 'entity.parse.failed' ? 'INVALID_JSON' : null)
+    || 'INTERNAL_ERROR';
   const safeMessage = statusCode < 500
-    ? error.message
+    ? (error.type === 'entity.parse.failed' ? 'El cuerpo JSON de la solicitud es inválido' : error.message)
     : 'Ocurrió un error interno. Intenta nuevamente.';
 
   if (statusCode >= 500) {
