@@ -25,7 +25,7 @@ Browser
               ▼
 Express API
 ├── OAuth 2.0 + PKCE
-├── sesión cifrada HttpOnly
+├── sesión server-side
 ├── CSRF y rate limits
 ├── validación de eventos
 ├── Google Calendar service
@@ -36,14 +36,17 @@ Express API
     Gemini       Google APIs
 ```
 
-El navegador **no recibe** `GEMINI_API_KEY`, `GOOGLE_OAUTH_CLIENT_SECRET`, access tokens ni refresh tokens. Los tokens de Google se almacenan dentro de una cookie de sesión cifrada mediante AES-256-GCM, `HttpOnly`, `SameSite=Lax` y `Secure` en producción.
+El navegador **no recibe en texto claro** `GEMINI_API_KEY`, `GOOGLE_OAUTH_CLIENT_SECRET`, access tokens ni refresh tokens. Las credenciales OAuth permanecen en el store de sesión del servidor. La cookie contiene únicamente un identificador aleatorio firmado mediante HMAC y se configura como `HttpOnly`, `SameSite=Lax` y `Secure` en producción.
+
+El estado temporal de OAuth (`state` y PKCE verifier) sí viaja en una cookie separada de corta duración, cifrada y autenticada mediante AES-256-GCM. Esa cookie existe únicamente durante el callback OAuth.
 
 ## Seguridad
 
 La aplicación pública aplica las siguientes medidas:
 
 - OAuth Authorization Code con PKCE y `state` aleatorio de corta duración.
-- Tokens OAuth procesados exclusivamente en el servidor.
+- Tokens OAuth procesados y almacenados exclusivamente en el servidor.
+- Cookie de sesión con ID aleatorio firmado; no contiene tokens OAuth.
 - Revocación de la credencial de Google al cerrar sesión.
 - CSRF token obligatorio para operaciones con estado.
 - Rate limit general por IP y límites adicionales por IP/usuario para IA.
@@ -57,7 +60,7 @@ La aplicación pública aplica las siguientes medidas:
 - Static assets limitados a `public/`; el repositorio completo no se expone como raíz pública.
 - Request IDs y errores 5xx sanitizados.
 
-> Los rate limits actuales viven en memoria del proceso. Esta configuración es adecuada para una sola instancia de Render. Antes de escalar a múltiples instancias, se debe sustituir el store por Redis u otro almacenamiento distribuido.
+> Las sesiones y los rate limits actuales viven en memoria del proceso. Esta configuración está diseñada para una sola instancia de Render. Antes de escalar horizontalmente, ambos stores deben moverse a Redis u otro almacenamiento distribuido.
 
 ## Privacidad y flujo de datos
 
@@ -104,7 +107,7 @@ GOOGLE_OAUTH_CLIENT_SECRET=...
 SESSION_SECRET=...
 ```
 
-Genera `SESSION_SECRET` con al menos 32 bytes aleatorios. Por ejemplo:
+Genera `SESSION_SECRET` con al menos 32 bytes aleatorios. La clave protege la firma del ID de sesión y el estado OAuth temporal. Por ejemplo:
 
 ```bash
 openssl rand -base64 48
@@ -228,7 +231,8 @@ CalendarIA/
 
 - El almacenamiento principal de eventos sigue siendo local al navegador; CalendarIA no incluye una base de datos multi-dispositivo.
 - No se importan eventos existentes desde Google Calendar.
-- Los límites de uso son locales a la instancia del servidor.
+- Las sesiones y los límites de uso son locales a la instancia del servidor.
+- Un reinicio o redeploy del proceso invalida las sesiones activas y obliga a reconectar Google.
 - La captura de voz requiere un navegador con `AudioWorklet` y acceso seguro al micrófono.
 
 ## Licencia y uso
