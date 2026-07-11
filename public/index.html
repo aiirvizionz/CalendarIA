@@ -39,7 +39,7 @@
       <p class="hero-copy">CalendarIA extrae fecha, hora y contexto con Gemini. Tú revisas el resultado antes de enviarlo a Google Calendar.</p>
       <div class="privacy-note">
         <span class="privacy-dot" aria-hidden="true"></span>
-        La IA y Google Calendar solo se habilitan después de iniciar sesión. Los tokens permanecen cifrados en una cookie HttpOnly.
+        La IA y Google Calendar solo se habilitan después de iniciar sesión. Los tokens OAuth permanecen en el servidor; el navegador recibe solo un ID de sesión HttpOnly.
       </div>
     </section>
 
@@ -130,7 +130,7 @@
           <section id="panelAudio" class="panel is-hidden" role="tabpanel" aria-labelledby="tabAudio">
             <div id="authGateAudio" class="auth-gate is-hidden">
               <span class="gate-icon" aria-hidden="true">✦</span>
-              <div><strong>Inicia sesión para analizar voz</strong><p>La grabación se envía únicamente cuando terminas y confirmas el análisis.</p></div>
+              <div><strong>Inicia sesión para analizar voz</strong><p>El audio se envía a Gemini cuando terminas la grabación; el evento no se guarda hasta que lo revisas y confirmas.</p></div>
             </div>
 
             <div class="voice-stage">
@@ -149,7 +149,7 @@
 
           <section id="reviewPanel" class="review-panel is-hidden" aria-live="polite" aria-labelledby="reviewTitle">
             <div class="review-heading">
-              <div><p class="eyebrow">Revisión humana</p><h2 id="reviewTitle">Confirma antes de agendar</h2></div>
+              <div><p class="eyebrow">Revisión humana</p><h2 id="reviewTitle" tabindex="-1">Confirma antes de agendar</h2></div>
               <span class="ai-badge">Gemini</span>
             </div>
             <dl class="event-preview">
