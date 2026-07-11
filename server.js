@@ -1,177 +1,321 @@
+'use strict';
+
+const crypto = require('crypto');
 const path = require('path');
 const express = require('express');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
+const config = require('./src/config');
+const { ValidationError, validateEvent } = require('./src/lib/event');
+const { createRateLimiter } = require('./src/lib/rate-limit');
+const {
+  clearOAuthState,
+  clearSession,
+  createCsrfToken,
+  readOAuthState,
+  readSession,
+  requireCsrf,
+  requireSession,
+  setOAuthState,
+  setSession,
+} = require('./src/lib/session');
+const { analyzeEvent } = require('./src/services/gemini');
+const {
+  createAuthorizationRequest,
+  createCalendarEvent,
+  deleteCalendarEvent,
+  ensureAccessToken,
+  exchangeAuthorizationCode,
+  getUserInfo,
+  revokeToken,
+  updateCalendarEvent,
+} = require('./src/services/google');
+
 const app = express();
-const PORT = process.env.PORT || 3000;
-const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL || 'models/gemini-2.5-flash';
-const PREFERRED_MODELS = [
-  DEFAULT_GEMINI_MODEL,
-  'models/gemini-2.5-flash',
-  'models/gemini-2.5-flash-lite',
-  'models/gemini-2.5-pro',
-  'models/gemini-2.0-flash',
-  'models/gemini-1.5-flash-latest',
-  'models/gemini-1.5-flash',
-];
+const publicDir = path.join(__dirname, 'public');
 
-let cachedGenerativeModels = null;
-let lastModelCacheAt = 0;
+app.disable('x-powered-by');
+if (config.isProduction) app.set('trust proxy', 1);
 
-app.use(express.json({ limit: '15mb' }));
-app.use(express.static(__dirname));
+function securityHeaders(req, res, next) {
+  const csp = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self' https://accounts.google.com",
+    "script-src 'self'",
+    "style-src 'self' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob:",
+    "media-src 'self' blob:",
+    "connect-src 'self'",
+  ];
+  if (config.isProduction) csp.push('upgrade-insecure-requests');
 
-function normalizeModelName(name) {
-  if (!name) return '';
-  return name.startsWith('models/') ? name : `models/${name}`;
-}
-
-async function listGenerativeModels() {
-  const now = Date.now();
-  const cacheIsFresh = cachedGenerativeModels && now - lastModelCacheAt < 5 * 60 * 1000;
-  if (cacheIsFresh) return cachedGenerativeModels;
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.API_KEY_GEMINI}`
-  );
-
-  if (!response.ok) {
-    throw new Error(`No se pudo listar modelos (${response.status})`);
+  res.setHeader('Content-Security-Policy', csp.join('; '));
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=(self)');
+  if (config.isProduction) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
-
-  const payload = await response.json();
-  const models = (payload.models || [])
-    .filter((model) => (model.supportedGenerationMethods || []).includes('generateContent'))
-    .map((model) => model.name)
-    .filter(Boolean);
-
-  cachedGenerativeModels = models;
-  lastModelCacheAt = now;
-  return models;
+  next();
 }
 
-async function resolveCandidateModels() {
-  const available = await listGenerativeModels();
-  const availableSet = new Set(available.map(normalizeModelName));
-
-  const preferred = [...new Set(PREFERRED_MODELS.map(normalizeModelName))]
-    .filter((model) => availableSet.has(model));
-
-  const additionalFlash = available
-    .map(normalizeModelName)
-    .filter((model) => /flash/i.test(model) && !preferred.includes(model));
-
-  const fallbackAny = available
-    .map(normalizeModelName)
-    .filter((model) => !preferred.includes(model) && !additionalFlash.includes(model));
-
-  return [...preferred, ...additionalFlash, ...fallbackAny];
+function requestContext(req, res, next) {
+  req.requestId = crypto.randomUUID();
+  res.setHeader('X-Request-Id', req.requestId);
+  if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
+  next();
 }
 
-app.get('/api/config', (req, res) => {
-  res.json({
-    googleClientId: process.env.GOOGLE_AUTH_API_KEY || '',
+function getTimeZone(req) {
+  const timeZone = String(req.get('x-time-zone') || 'UTC');
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone }).format(new Date());
+    return timeZone;
+  } catch {
+    throw new ValidationError('La zona horaria no es válida');
+  }
+}
+
+async function googleContext(req, res) {
+  const context = await ensureAccessToken(req.session);
+  if (context.refreshed) {
+    req.session = context.session;
+    setSession(res, context.session);
+  }
+  return context.accessToken;
+}
+
+const publicLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 120,
+  keyFn: (req) => req.ip,
+  code: 'PUBLIC_RATE_LIMITED',
+});
+
+const aiIpLimiter = createRateLimiter({
+  windowMs: 15 * 60_000,
+  max: 60,
+  keyFn: (req) => req.ip,
+  code: 'AI_IP_RATE_LIMITED',
+});
+
+const aiUserLimiter = createRateLimiter({
+  windowMs: 15 * 60_000,
+  max: 20,
+  keyFn: (req) => req.session?.user?.sub,
+  code: 'AI_USER_RATE_LIMITED',
+});
+
+const calendarUserLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 30,
+  keyFn: (req) => req.session?.user?.sub,
+  code: 'CALENDAR_RATE_LIMITED',
+});
+
+app.use(securityHeaders);
+app.use(requestContext);
+app.use(publicLimiter);
+app.use('/api', express.json({ limit: '12mb', strict: true, type: 'application/json' }));
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ ok: true, service: 'calendaria' });
+});
+
+app.get('/api/session', (req, res) => {
+  const session = readSession(req);
+  if (!session) return res.json({ authenticated: false });
+
+  return res.json({
+    authenticated: true,
+    csrfToken: session.csrfToken,
+    user: {
+      name: session.user.name,
+      email: session.user.email,
+      picture: session.user.picture,
+    },
   });
 });
 
-app.get('/health', (req, res) => {
-  res.status(200).json({ ok: true });
-});
-
-app.post('/api/gemini', async (req, res) => {
+app.get('/api/auth/google/start', (req, res, next) => {
   try {
-    const { systemPrompt, partsContent } = req.body || {};
-
-    if (!process.env.API_KEY_GEMINI) {
-      return res.status(500).json({ error: 'Falta API_KEY_GEMINI en .env' });
-    }
-
-    if (!systemPrompt || !Array.isArray(partsContent) || partsContent.length === 0) {
-      return res.status(400).json({ error: 'Solicitud invalida para Gemini' });
-    }
-
-    const requestBody = {
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts: partsContent }],
-      generationConfig: { response_mime_type: 'application/json' },
-    };
-
-    const candidateModels = await resolveCandidateModels();
-    if (!candidateModels.length) {
-      return res.status(500).json({ error: 'No hay modelos compatibles con generateContent para esta API key' });
-    }
-
-    const triedModels = [];
-    let data = null;
-    let lastStatus = 500;
-    let lastError = 'Error al consultar Gemini';
-
-    for (const model of candidateModels) {
-      triedModels.push(model);
-
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/${model}:generateContent?key=${process.env.API_KEY_GEMINI}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      let responseData = null;
-      try {
-        responseData = await geminiResponse.json();
-      } catch (error) {
-        responseData = null;
-      }
-
-      if (geminiResponse.ok) {
-        data = responseData;
-        break;
-      }
-
-      lastStatus = geminiResponse.status;
-      lastError = responseData?.error?.message || 'Error al consultar Gemini';
-
-      const isModelNotFound = /not found|not supported/i.test(lastError);
-      if (!isModelNotFound) {
-        return res.status(lastStatus).json({ error: lastError });
-      }
-    }
-
-    if (!data) {
-      return res.status(lastStatus).json({
-        error: `${lastError}. Modelos probados: ${triedModels.join(', ')}`,
-      });
-    }
-
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!rawText) {
-      return res.status(500).json({ error: 'Gemini no devolvio contenido' });
-    }
-
-    return res.json({ rawText });
+    const authorization = createAuthorizationRequest();
+    setOAuthState(res, {
+      state: authorization.state,
+      verifier: authorization.verifier,
+      expiresAt: authorization.expiresAt,
+    });
+    return res.redirect(authorization.url);
   } catch (error) {
-    return res.status(500).json({ error: 'Error interno del servidor' });
+    return next(error);
   }
 });
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+app.get('/api/auth/google/callback', async (req, res, next) => {
+  const oauthState = readOAuthState(req);
+  clearOAuthState(res);
+
+  try {
+    const code = String(req.query.code || '');
+    const state = String(req.query.state || '');
+    if (!oauthState || oauthState.expiresAt < Date.now() || !state || state !== oauthState.state || !code) {
+      const error = new Error('La autorización de Google no pudo validarse');
+      error.statusCode = 400;
+      error.code = 'OAUTH_STATE_INVALID';
+      throw error;
+    }
+
+    const tokens = await exchangeAuthorizationCode(code, oauthState.verifier);
+    const user = await getUserInfo(tokens.access_token);
+    if (!user?.sub || !user?.email) {
+      const error = new Error('Google no devolvió un perfil válido');
+      error.statusCode = 502;
+      error.code = 'GOOGLE_PROFILE_INVALID';
+      throw error;
+    }
+
+    setSession(res, {
+      user: {
+        sub: user.sub,
+        name: user.name || user.email,
+        email: user.email,
+        picture: user.picture || '',
+      },
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token || '',
+      accessTokenExpiresAt: Date.now() + Number(tokens.expires_in || 3600) * 1000,
+      csrfToken: createCsrfToken(),
+    });
+
+    return res.redirect('/?auth=success');
+  } catch (error) {
+    if (!error.statusCode || error.statusCode >= 500) {
+      console.error(JSON.stringify({ requestId: req.requestId, code: error.code || 'OAUTH_ERROR', message: error.message }));
+    }
+    return res.redirect('/?auth=error');
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`CalendarIA corriendo en http://localhost:${PORT}`);
-  console.log(`Modelo Gemini por defecto: ${DEFAULT_GEMINI_MODEL}`);
-}).on('error', (error) => {
-  if (error && error.code === 'EADDRINUSE') {
-    console.error(`El puerto ${PORT} ya esta en uso. Cierra el proceso previo o usa otro PORT en .env`);
-    process.exit(1);
+app.post('/api/auth/logout', requireSession, requireCsrf, async (req, res) => {
+  const token = req.session.refreshToken || req.session.accessToken;
+  clearSession(res);
+  await revokeToken(token);
+  res.status(204).end();
+});
+
+app.post('/api/ai/analyze', requireSession, requireCsrf, aiIpLimiter, aiUserLimiter, async (req, res, next) => {
+  try {
+    const event = await analyzeEvent(req.body, getTimeZone(req));
+    return res.json({ event });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/calendar/events', requireSession, requireCsrf, calendarUserLimiter, async (req, res, next) => {
+  try {
+    const event = validateEvent(req.body);
+    const timeZone = getTimeZone(req);
+    const accessToken = await googleContext(req, res);
+    const created = await createCalendarEvent(accessToken, event, timeZone);
+    return res.status(201).json({
+      googleEventId: created.id,
+      htmlLink: created.htmlLink || '',
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch('/api/calendar/events/:eventId', requireSession, requireCsrf, calendarUserLimiter, async (req, res, next) => {
+  try {
+    const event = validateEvent(req.body);
+    const timeZone = getTimeZone(req);
+    const accessToken = await googleContext(req, res);
+    const updated = await updateCalendarEvent(accessToken, req.params.eventId, event, timeZone);
+    return res.json({
+      googleEventId: updated.id,
+      htmlLink: updated.htmlLink || '',
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/api/calendar/events/:eventId', requireSession, requireCsrf, calendarUserLimiter, async (req, res, next) => {
+  try {
+    const accessToken = await googleContext(req, res);
+    await deleteCalendarEvent(accessToken, req.params.eventId);
+    return res.status(204).end();
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.use(express.static(publicDir, {
+  dotfiles: 'deny',
+  index: false,
+  maxAge: config.isProduction ? '1h' : 0,
+  etag: true,
+}));
+
+app.get('*', (req, res, next) => {
+  if (!req.accepts('html')) return next();
+  return res.sendFile(path.join(publicDir, 'index.html'));
+});
+
+app.use((req, res) => {
+  res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Recurso no encontrado' } });
+});
+
+app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+
+  const statusCode = Number(error.statusCode) || (error.type === 'entity.too.large' ? 413 : 500);
+  const code = error.code || (statusCode === 413 ? 'PAYLOAD_TOO_LARGE' : 'INTERNAL_ERROR');
+  const safeMessage = statusCode < 500
+    ? error.message
+    : 'Ocurrió un error interno. Intenta nuevamente.';
+
+  if (statusCode >= 500) {
+    console.error(JSON.stringify({
+      requestId: req.requestId,
+      code,
+      message: error.message,
+      stack: config.isProduction ? undefined : error.stack,
+    }));
   }
 
+  return res.status(statusCode).json({
+    error: {
+      code,
+      message: safeMessage,
+      requestId: req.requestId,
+    },
+  });
+});
+
+const server = app.listen(config.port, () => {
+  console.log(`CalendarIA escuchando en ${config.appBaseUrl}`);
+  console.log(`Gemini model: ${config.geminiModel}`);
+});
+
+server.requestTimeout = 45_000;
+server.headersTimeout = 50_000;
+server.keepAliveTimeout = 5_000;
+
+server.on('error', (error) => {
   console.error('Error iniciando servidor:', error.message || error);
   process.exit(1);
 });
+
+module.exports = app;
