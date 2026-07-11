@@ -3,9 +3,23 @@ services:
     name: calendaria
     env: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm ci
     startCommand: npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
-        value: 18
+        value: 24
+      - key: NODE_ENV
+        value: production
+      - key: APP_BASE_URL
+        value: https://calendaria.onrender.com
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
