@@ -4,12 +4,37 @@ const STORAGE_VERSION = 2;
 const CATEGORIES = new Set(['examen', 'estudio', 'social', 'presentacion', 'tarea', 'otro']);
 const REMINDERS = new Set([10, 60, 360, 1440, 10080]);
 
+function isValidDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day;
+}
+
+function normalizeLegacyTime(value) {
+  const raw = String(value || '').trim();
+  if (/^\d{1,2}:\d{2}$/.test(raw)) {
+    const [hours, minutes] = raw.split(':');
+    const normalized = `${hours.padStart(2, '0')}:${minutes}`;
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(normalized) ? normalized : '';
+  }
+  if (/^\d{3,4}$/.test(raw)) {
+    const padded = raw.padStart(4, '0');
+    const normalized = `${padded.slice(0, 2)}:${padded.slice(2)}`;
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(normalized) ? normalized : '';
+  }
+  return '';
+}
+
 function isEvent(value) {
   return value
     && typeof value === 'object'
     && typeof value.id === 'string'
     && typeof value.title === 'string'
-    && /^\d{4}-\d{2}-\d{2}$/.test(value.date)
+    && value.title.trim().length > 0
+    && isValidDate(value.date)
     && /^([01]\d|2[0-3]):[0-5]\d$/.test(value.time)
     && CATEGORIES.has(value.category)
     && Array.isArray(value.reminders);
@@ -37,8 +62,7 @@ function migrateLegacyEvents() {
     const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || '[]');
     if (!Array.isArray(legacy)) return [];
 
-    return legacy.flatMap((event) => {
-      const time = String(event?.time || '').padStart(5, '0');
+    const migrated = legacy.flatMap((event) => {
       const reminders = Array.isArray(event?.reminders)
         ? event.reminders.map(Number)
         : [Number(event?.reminder || 10)];
@@ -46,7 +70,7 @@ function migrateLegacyEvents() {
         id: crypto.randomUUID(),
         title: String(event?.title || '').trim().slice(0, 120),
         date: String(event?.date || ''),
-        time,
+        time: normalizeLegacyTime(event?.time),
         category: String(event?.category || 'otro'),
         reminders,
         googleEventId: String(event?.gcalId || ''),
@@ -57,9 +81,16 @@ function migrateLegacyEvents() {
       };
       return isEvent(candidate) ? [normalizeStoredEvent(candidate)] : [];
     });
+
+    localStorage.removeItem(LEGACY_KEY);
+    return migrated;
   } catch {
     return [];
   }
+}
+
+function writeStore(events) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: STORAGE_VERSION, events }));
 }
 
 function readStore() {
@@ -76,10 +107,6 @@ function readStore() {
     writeStore(migrated);
     return migrated;
   }
-}
-
-function writeStore(events) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: STORAGE_VERSION, events }));
 }
 
 let events = readStore();
@@ -100,6 +127,7 @@ export function addEvent(event) {
     createdAt: now,
     updatedAt: now,
   });
+  if (!isEvent(stored)) throw new Error('El evento local no es válido');
   events = [...events, stored];
   persist();
   return stored;
@@ -109,12 +137,14 @@ export function updateEvent(id, patch) {
   let updated = null;
   events = events.map((event) => {
     if (event.id !== id) return event;
-    updated = normalizeStoredEvent({
+    const candidate = normalizeStoredEvent({
       ...event,
       ...patch,
       id: event.id,
       updatedAt: new Date().toISOString(),
     });
+    if (!isEvent(candidate)) throw new Error('La actualización local no es válida');
+    updated = candidate;
     return updated;
   });
   persist();
