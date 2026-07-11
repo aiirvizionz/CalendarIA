@@ -5,7 +5,7 @@ const config = require('../config');
 
 const SESSION_COOKIE = 'calendaria_session';
 const OAUTH_COOKIE = 'calendaria_oauth';
-const ONE_HOUR_MS = 60 * 60 * 1000;
+const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 function encode(value) {
   return Buffer.from(value).toString('base64url');
@@ -74,9 +74,9 @@ function readSession(req) {
 }
 
 function setSession(res, session) {
-  const expiresAt = Number(session.accessTokenExpiresAt || Date.now() + ONE_HOUR_MS);
-  const maxAge = Math.max(60, Math.floor((expiresAt - Date.now()) / 1000));
-  res.append('Set-Cookie', cookie(SESSION_COOKIE, encrypt(session), { maxAge }));
+  res.append('Set-Cookie', cookie(SESSION_COOKIE, encrypt(session), {
+    maxAge: SESSION_MAX_AGE_SECONDS,
+  }));
 }
 
 function clearSession(res) {
