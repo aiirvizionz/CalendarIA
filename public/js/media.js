@@ -31,67 +31,130 @@ export async function readImage(file) {
   };
 }
 
-function supportedAudioMimeType() {
-  const types = [
-    'audio/webm;codecs=opus',
-    'audio/webm',
-    'audio/ogg;codecs=opus',
-    'audio/mp4',
-  ];
-  return types.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+function mergeFloat32Chunks(chunks) {
+  const length = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const merged = new Float32Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return merged;
+}
+
+function writeAscii(view, offset, text) {
+  for (let index = 0; index < text.length; index += 1) {
+    view.setUint8(offset + index, text.charCodeAt(index));
+  }
+}
+
+function encodeWav(samples, sampleRate) {
+  const bytesPerSample = 2;
+  const buffer = new ArrayBuffer(44 + samples.length * bytesPerSample);
+  const view = new DataView(buffer);
+
+  writeAscii(view, 0, 'RIFF');
+  view.setUint32(4, 36 + samples.length * bytesPerSample, true);
+  writeAscii(view, 8, 'WAVE');
+  writeAscii(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * bytesPerSample, true);
+  view.setUint16(32, bytesPerSample, true);
+  view.setUint16(34, 16, true);
+  writeAscii(view, 36, 'data');
+  view.setUint32(40, samples.length * bytesPerSample, true);
+
+  let offset = 44;
+  for (const sample of samples) {
+    const clamped = Math.max(-1, Math.min(1, sample));
+    const pcm = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
+    view.setInt16(offset, pcm, true);
+    offset += bytesPerSample;
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
 }
 
 export async function startAudioCapture() {
-  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-    throw new Error('Tu navegador no permite grabar audio desde esta página');
+  if (!navigator.mediaDevices?.getUserMedia || typeof AudioContext === 'undefined' || typeof AudioWorkletNode === 'undefined') {
+    throw new Error('Tu navegador no permite grabar audio compatible desde esta página');
   }
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const mimeType = supportedAudioMimeType();
-  const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      channelCount: 1,
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    },
+  });
+  const audioContext = new AudioContext();
   const chunks = [];
   let stopped = false;
   let timer = null;
 
-  const cleanup = () => {
+  try {
+    await audioContext.audioWorklet.addModule('/js/pcm-recorder-worklet.js');
+    await audioContext.resume();
+  } catch (error) {
     stream.getTracks().forEach((track) => track.stop());
-    if (timer) window.clearTimeout(timer);
+    await audioContext.close().catch(() => {});
+    throw new Error('No se pudo preparar la captura de audio');
+  }
+
+  const source = audioContext.createMediaStreamSource(stream);
+  const recorder = new AudioWorkletNode(audioContext, 'pcm-recorder');
+  const silentOutput = audioContext.createGain();
+  silentOutput.gain.value = 0;
+  recorder.port.onmessage = (event) => {
+    if (!stopped && event.data instanceof Float32Array && event.data.length) chunks.push(event.data);
   };
 
+  source.connect(recorder);
+  recorder.connect(silentOutput);
+  silentOutput.connect(audioContext.destination);
+
+  let resolveResult;
+  let rejectResult;
   const result = new Promise((resolve, reject) => {
-    recorder.addEventListener('dataavailable', (event) => {
-      if (event.data?.size) chunks.push(event.data);
-    });
-    recorder.addEventListener('error', () => {
-      cleanup();
-      reject(new Error('La grabación de audio falló'));
-    });
-    recorder.addEventListener('stop', async () => {
-      cleanup();
-      try {
-        const blob = new Blob(chunks, { type: recorder.mimeType || mimeType || 'audio/webm' });
-        if (!blob.size) throw new Error('No se detectó audio para analizar');
-        resolve({
-          mimeType: blob.type.split(';')[0],
-          data: await blobToBase64(blob),
-        });
-      } catch (error) {
-        reject(error);
-      }
-    });
+    resolveResult = resolve;
+    rejectResult = reject;
   });
 
-  recorder.start(250);
-  timer = window.setTimeout(() => {
-    if (recorder.state !== 'inactive') recorder.stop();
-  }, AUDIO_MAX_DURATION_MS);
+  async function finish() {
+    if (stopped) return;
+    stopped = true;
+    if (timer) window.clearTimeout(timer);
+
+    try {
+      source.disconnect();
+      recorder.disconnect();
+      silentOutput.disconnect();
+      stream.getTracks().forEach((track) => track.stop());
+      await audioContext.close();
+
+      const samples = mergeFloat32Chunks(chunks);
+      if (samples.length < audioContext.sampleRate / 4) {
+        throw new Error('La grabación fue demasiado corta para analizar');
+      }
+
+      const blob = encodeWav(samples, audioContext.sampleRate);
+      resolveResult({
+        mimeType: 'audio/wav',
+        data: await blobToBase64(blob),
+      });
+    } catch (error) {
+      rejectResult(error);
+    }
+  }
+
+  timer = window.setTimeout(finish, AUDIO_MAX_DURATION_MS);
 
   return {
     result,
-    stop() {
-      if (stopped) return;
-      stopped = true;
-      if (recorder.state !== 'inactive') recorder.stop();
-    },
+    stop: finish,
   };
 }
