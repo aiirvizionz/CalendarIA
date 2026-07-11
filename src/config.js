@@ -28,7 +28,7 @@ const config = Object.freeze({
   port: Number.parseInt(process.env.PORT || '3000', 10),
   appBaseUrl: normalizeBaseUrl(requireEnv('APP_BASE_URL', 'http://localhost:3000')),
   geminiApiKey: requireEnv('GEMINI_API_KEY'),
-  geminiModel: requireEnv('GEMINI_MODEL', 'gemini-2.5-flash'),
+  geminiModel: requireEnv('GEMINI_MODEL', 'gemini-3.5-flash'),
   googleClientId: requireEnv('GOOGLE_OAUTH_CLIENT_ID'),
   googleClientSecret: requireEnv('GOOGLE_OAUTH_CLIENT_SECRET'),
   sessionSecret,
