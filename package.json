@@ -1,15 +1,19 @@
 {
   "name": "calendaria",
-  "version": "1.0.0",
-  "description": "AgendaAI con Gemini para extraer eventos desde texto, imagen y audio.",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Agenda inteligente con Gemini y sincronización segura con Google Calendar.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "check": "node scripts/check-syntax.js",
+    "test": "node --test",
+    "ci": "npm run check && npm test"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^4.21.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": "24.x"
   }
 }

@@ -6,6 +6,8 @@ const config = require('../config');
 const SESSION_COOKIE = 'calendaria_session';
 const OAUTH_COOKIE = 'calendaria_oauth';
 const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_SECONDS * 1000;
+const sessions = new Map();
 
 function encode(value) {
   return Buffer.from(value).toString('base64url');
@@ -66,20 +68,68 @@ function cookie(name, value, options = {}) {
   return parts.join('; ');
 }
 
-function readSession(req) {
+function signSessionId(sessionId) {
+  return crypto.createHmac('sha256', config.sessionKey).update(sessionId).digest('base64url');
+}
+
+function serializeSessionId(sessionId) {
+  return `${sessionId}.${signSessionId(sessionId)}`;
+}
+
+function parseSessionId(value) {
+  if (!value || typeof value !== 'string') return '';
+  const separator = value.lastIndexOf('.');
+  if (separator < 1) return '';
+  const sessionId = value.slice(0, separator);
+  const receivedSignature = value.slice(separator + 1);
+  const expectedSignature = signSessionId(sessionId);
+  if (receivedSignature.length !== expectedSignature.length) return '';
+
+  const valid = crypto.timingSafeEqual(
+    Buffer.from(receivedSignature),
+    Buffer.from(expectedSignature),
+  );
+  return valid ? sessionId : '';
+}
+
+function sessionIdFromRequest(req) {
   const cookies = parseCookies(req.headers.cookie);
-  const session = decrypt(cookies[SESSION_COOKIE]);
-  if (!session || !session.user?.sub || !session.csrfToken) return null;
+  return parseSessionId(cookies[SESSION_COOKIE]);
+}
+
+function readSession(req) {
+  const sessionId = sessionIdFromRequest(req);
+  if (!sessionId) return null;
+
+  const session = sessions.get(sessionId);
+  if (!session || session.expiresAt <= Date.now() || !session.user?.sub || !session.csrfToken) {
+    sessions.delete(sessionId);
+    return null;
+  }
+
+  session.expiresAt = Date.now() + SESSION_MAX_AGE_MS;
   return session;
 }
 
 function setSession(res, session) {
-  res.append('Set-Cookie', cookie(SESSION_COOKIE, encrypt(session), {
+  const sessionId = session.sessionId && sessions.has(session.sessionId)
+    ? session.sessionId
+    : crypto.randomBytes(32).toString('base64url');
+  const storedSession = {
+    ...session,
+    sessionId,
+    expiresAt: Date.now() + SESSION_MAX_AGE_MS,
+  };
+  sessions.set(sessionId, storedSession);
+  res.append('Set-Cookie', cookie(SESSION_COOKIE, serializeSessionId(sessionId), {
     maxAge: SESSION_MAX_AGE_SECONDS,
   }));
+  return storedSession;
 }
 
-function clearSession(res) {
+function clearSession(req, res) {
+  const sessionId = sessionIdFromRequest(req);
+  if (sessionId) sessions.delete(sessionId);
   res.append('Set-Cookie', cookie(SESSION_COOKIE, '', { maxAge: 0 }));
 }
 
@@ -127,6 +177,14 @@ function requireCsrf(req, res, next) {
   }
   return next();
 }
+
+const cleanup = setInterval(() => {
+  const now = Date.now();
+  for (const [sessionId, session] of sessions.entries()) {
+    if (session.expiresAt <= now) sessions.delete(sessionId);
+  }
+}, 60 * 60 * 1000);
+cleanup.unref();
 
 module.exports = {
   clearOAuthState,
