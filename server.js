@@ -5,7 +5,7 @@ const path = require('path');
 const express = require('express');
 const dotenv = require('dotenv');
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const config = require('./src/config');
 const { ValidationError, validateEvent } = require('./src/lib/event');
@@ -75,6 +75,24 @@ function requestContext(req, res, next) {
   next();
 }
 
+function requireIntegration(name) {
+  return function configuredIntegration(req, res, next) {
+    if (config.integrations[name]) return next();
+
+    const labels = {
+      gemini: 'Gemini',
+      google: 'Google OAuth',
+    };
+    return res.status(503).json({
+      error: {
+        code: `${name.toUpperCase()}_NOT_CONFIGURED`,
+        message: `${labels[name] || name} no está configurado en el servidor`,
+        requestId: req.requestId,
+      },
+    });
+  };
+}
+
 function getTimeZone(req) {
   const timeZone = String(req.get('x-time-zone') || 'UTC');
   try {
@@ -92,6 +110,9 @@ async function googleContext(req, res) {
   }
   return context.accessToken;
 }
+
+const requireGeminiIntegration = requireIntegration('gemini');
+const requireGoogleIntegration = requireIntegration('google');
 
 const publicLimiter = createRateLimiter({
   windowMs: 60_000,
@@ -127,15 +148,25 @@ app.use(publicLimiter);
 app.use('/api', express.json({ limit: '12mb', strict: true, type: 'application/json' }));
 
 app.get('/health', (req, res) => {
-  res.status(200).json({ ok: true, service: 'calendaria' });
+  res.status(200).json({
+    ok: true,
+    service: 'calendaria',
+    integrations: config.integrations,
+  });
 });
 
 app.get('/api/session', (req, res) => {
   const session = readSession(req);
-  if (!session) return res.json({ authenticated: false });
+  if (!session) {
+    return res.json({
+      authenticated: false,
+      integrations: config.integrations,
+    });
+  }
 
   return res.json({
     authenticated: true,
+    integrations: config.integrations,
     csrfToken: session.csrfToken,
     user: {
       name: session.user.name,
@@ -145,7 +176,7 @@ app.get('/api/session', (req, res) => {
   });
 });
 
-app.get('/api/auth/google/start', (req, res, next) => {
+app.get('/api/auth/google/start', requireGoogleIntegration, (req, res, next) => {
   try {
     const authorization = createAuthorizationRequest();
     setOAuthState(res, {
@@ -159,7 +190,7 @@ app.get('/api/auth/google/start', (req, res, next) => {
   }
 });
 
-app.get('/api/auth/google/callback', async (req, res) => {
+app.get('/api/auth/google/callback', requireGoogleIntegration, async (req, res) => {
   const oauthState = readOAuthState(req);
   clearOAuthState(res);
 
@@ -211,54 +242,83 @@ app.post('/api/auth/logout', requireSession, requireCsrf, async (req, res) => {
   res.status(204).end();
 });
 
-app.post('/api/ai/analyze', requireSession, requireCsrf, aiIpLimiter, aiUserLimiter, async (req, res, next) => {
-  try {
-    const event = await analyzeEvent(req.body, getTimeZone(req));
-    return res.json({ event });
-  } catch (error) {
-    return next(error);
-  }
-});
+app.post(
+  '/api/ai/analyze',
+  requireSession,
+  requireCsrf,
+  requireGeminiIntegration,
+  aiIpLimiter,
+  aiUserLimiter,
+  async (req, res, next) => {
+    try {
+      const event = await analyzeEvent(req.body, getTimeZone(req));
+      return res.json({ event });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
 
-app.post('/api/calendar/events', requireSession, requireCsrf, calendarUserLimiter, async (req, res, next) => {
-  try {
-    const event = validateEvent(req.body);
-    const timeZone = getTimeZone(req);
-    const accessToken = await googleContext(req, res);
-    const created = await createCalendarEvent(accessToken, event, timeZone);
-    return res.status(201).json({
-      googleEventId: created.id,
-      htmlLink: created.htmlLink || '',
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
+app.post(
+  '/api/calendar/events',
+  requireSession,
+  requireCsrf,
+  requireGoogleIntegration,
+  calendarUserLimiter,
+  async (req, res, next) => {
+    try {
+      const event = validateEvent(req.body);
+      const timeZone = getTimeZone(req);
+      const accessToken = await googleContext(req, res);
+      const created = await createCalendarEvent(accessToken, event, timeZone);
+      return res.status(201).json({
+        googleEventId: created.id,
+        htmlLink: created.htmlLink || '',
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
 
-app.patch('/api/calendar/events/:eventId', requireSession, requireCsrf, calendarUserLimiter, async (req, res, next) => {
-  try {
-    const event = validateEvent(req.body);
-    const timeZone = getTimeZone(req);
-    const accessToken = await googleContext(req, res);
-    const updated = await updateCalendarEvent(accessToken, req.params.eventId, event, timeZone);
-    return res.json({
-      googleEventId: updated.id,
-      htmlLink: updated.htmlLink || '',
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
+app.patch(
+  '/api/calendar/events/:eventId',
+  requireSession,
+  requireCsrf,
+  requireGoogleIntegration,
+  calendarUserLimiter,
+  async (req, res, next) => {
+    try {
+      const event = validateEvent(req.body);
+      const timeZone = getTimeZone(req);
+      const accessToken = await googleContext(req, res);
+      const updated = await updateCalendarEvent(accessToken, req.params.eventId, event, timeZone);
+      return res.json({
+        googleEventId: updated.id,
+        htmlLink: updated.htmlLink || '',
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
 
-app.delete('/api/calendar/events/:eventId', requireSession, requireCsrf, calendarUserLimiter, async (req, res, next) => {
-  try {
-    const accessToken = await googleContext(req, res);
-    await deleteCalendarEvent(accessToken, req.params.eventId);
-    return res.status(204).end();
-  } catch (error) {
-    return next(error);
-  }
-});
+app.delete(
+  '/api/calendar/events/:eventId',
+  requireSession,
+  requireCsrf,
+  requireGoogleIntegration,
+  calendarUserLimiter,
+  async (req, res, next) => {
+    try {
+      const accessToken = await googleContext(req, res);
+      await deleteCalendarEvent(accessToken, req.params.eventId);
+      return res.status(204).end();
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
 
 app.use(express.static(publicDir, {
   dotfiles: 'deny',
@@ -309,8 +369,19 @@ app.use((error, req, res, next) => {
 });
 
 const server = app.listen(config.port, () => {
-  console.log(`CalendarIA escuchando en ${config.appBaseUrl}`);
-  console.log(`Gemini model: ${config.geminiModel}`);
+  console.log(JSON.stringify({
+    event: 'server_started',
+    service: 'calendaria',
+    baseUrl: config.appBaseUrl,
+    integrations: config.integrations,
+  }));
+
+  if (!config.integrations.gemini) {
+    console.warn('Gemini no configurado: define GEMINI_API_KEY (o el alias temporal API_KEY_GEMINI).');
+  }
+  if (!config.integrations.google) {
+    console.warn('Google OAuth no configurado: define GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET.');
+  }
 });
 
 server.requestTimeout = 45_000;

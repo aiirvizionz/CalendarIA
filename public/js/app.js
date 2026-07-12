@@ -26,7 +26,7 @@ const REMINDER_LABELS = Object.freeze({
 });
 
 const state = {
-  session: { authenticated: false },
+  session: { authenticated: false, integrations: null },
   activeTab: 'manual',
   pendingEvent: null,
   image: null,
@@ -83,14 +83,57 @@ function formatEventDate(event) {
   }).format(parsed);
 }
 
+function integrationEnabled(name) {
+  return Boolean(state.session.integrations?.[name]);
+}
+
+function setAuthGate(gateId, title, description, hidden) {
+  const gate = $(gateId);
+  gate.classList.toggle('is-hidden', hidden);
+  if (hidden) return;
+  gate.querySelector('strong').textContent = title;
+  gate.querySelector('p').textContent = description;
+}
+
 function updateAuthUI() {
+  const statusKnown = state.session.integrations !== null;
   const authenticated = Boolean(state.session.authenticated);
-  $('authButtonText').textContent = authenticated ? 'Cerrar sesión' : 'Conectar Google';
+  const googleConfigured = integrationEnabled('google');
+  const geminiConfigured = integrationEnabled('gemini');
+  const aiAvailable = authenticated && geminiConfigured;
+
+  $('authButton').disabled = !statusKnown || (!authenticated && !googleConfigured);
+  $('authButtonText').textContent = !statusKnown
+    ? 'Verificando…'
+    : authenticated
+      ? 'Cerrar sesión'
+      : googleConfigured
+        ? 'Conectar Google'
+        : 'Google no configurado';
   $('userChip').classList.toggle('is-hidden', !authenticated);
-  $('authGateAi').classList.toggle('is-hidden', authenticated);
-  $('authGateAudio').classList.toggle('is-hidden', authenticated);
-  $('analyzeButton').disabled = !authenticated;
-  $('recordButton').disabled = !authenticated;
+  $('analyzeButton').disabled = !aiAvailable;
+  $('recordButton').disabled = !aiAvailable;
+
+  let gateTitle = 'Inicia sesión para usar Gemini';
+  let gateDescription = 'Así protegemos la cuota de la API y asociamos límites de uso a una sesión real.';
+  if (!statusKnown) {
+    gateTitle = 'Verificando integraciones';
+    gateDescription = 'CalendarIA está comprobando la disponibilidad del servidor.';
+  } else if (!googleConfigured) {
+    gateTitle = 'Google OAuth no está configurado';
+    gateDescription = 'La creación manual sigue disponible. La IA y la sincronización se habilitarán cuando el servidor configure Google OAuth.';
+  } else if (!geminiConfigured) {
+    gateTitle = 'Gemini no está configurado';
+    gateDescription = 'La creación manual y Google Calendar siguen disponibles, pero el análisis con IA está temporalmente deshabilitado.';
+  }
+
+  setAuthGate('authGateAi', gateTitle, gateDescription, aiAvailable);
+  setAuthGate(
+    'authGateAudio',
+    gateTitle.replace('usar Gemini', 'analizar voz'),
+    gateDescription,
+    aiAvailable,
+  );
 
   if (authenticated) {
     $('userName').textContent = state.session.user?.name || state.session.user?.email || '';
@@ -145,7 +188,7 @@ function renderEvents() {
 }
 
 async function saveEvent(event) {
-  const shouldSync = state.session.authenticated;
+  const shouldSync = state.session.authenticated && integrationEnabled('google');
   const stored = addEvent({
     ...event,
     reminders: event.reminders || [10],
@@ -180,8 +223,8 @@ async function saveEvent(event) {
 
 async function handleDeleteEvent(event) {
   if (event.googleEventId) {
-    if (!state.session.authenticated) {
-      showToast('Inicia sesión para eliminar también el evento de Google Calendar', 'error');
+    if (!state.session.authenticated || !integrationEnabled('google')) {
+      showToast('Google Calendar no está disponible para eliminar la copia sincronizada', 'error');
       return;
     }
     try {
@@ -255,6 +298,10 @@ async function processImage(file) {
 }
 
 async function runAnalysis(input, button = null) {
+  if (!integrationEnabled('gemini')) {
+    showToast('Gemini no está configurado en el servidor', 'error');
+    return;
+  }
   if (!state.session.authenticated) {
     showToast('Inicia sesión con Google para usar Gemini', 'error');
     return;
@@ -283,6 +330,10 @@ function resetVoiceUI() {
 }
 
 async function beginRecording() {
+  if (!integrationEnabled('gemini')) {
+    showToast('Gemini no está configurado en el servidor', 'error');
+    return;
+  }
   if (!state.session.authenticated) {
     showToast('Inicia sesión con Google para analizar voz', 'error');
     return;
@@ -331,10 +382,21 @@ function bindTabs() {
 
 function bindEvents() {
   $('authButton').addEventListener('click', async () => {
-    if (!state.session.authenticated) return startGoogleAuth();
+    if (!state.session.authenticated) {
+      if (!integrationEnabled('google')) {
+        showToast('Google OAuth no está configurado en el servidor', 'error');
+        return;
+      }
+      startGoogleAuth();
+      return;
+    }
+
     try {
       await logout();
-      state.session = { authenticated: false };
+      state.session = {
+        authenticated: false,
+        integrations: state.session.integrations,
+      };
       updateAuthUI();
       showToast('Sesión de Google cerrada', 'success');
     } catch (error) {
@@ -419,6 +481,7 @@ async function initialize() {
   bindTabs();
   bindEvents();
   renderEvents();
+  updateAuthUI();
 
   try {
     state.session = await loadSession();

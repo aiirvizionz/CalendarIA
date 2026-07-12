@@ -4,8 +4,16 @@ const crypto = require('crypto');
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-function requireEnv(name, fallback = '') {
-  const value = String(process.env[name] || fallback).trim();
+function readEnv(...names) {
+  for (const name of names) {
+    const value = String(process.env[name] || '').trim();
+    if (value) return value;
+  }
+  return '';
+}
+
+function requireCoreEnv(name, fallback = '') {
+  const value = readEnv(name) || fallback;
   if (isProduction && !value) {
     throw new Error(`Falta la variable de entorno obligatoria ${name}`);
   }
@@ -13,24 +21,33 @@ function requireEnv(name, fallback = '') {
 }
 
 function normalizeBaseUrl(value) {
-  if (!value) return 'http://localhost:3000';
-  return value.replace(/\/+$/, '');
+  return String(value || 'http://localhost:3000').replace(/\/+$/, '');
 }
 
-const sessionSecret = requireEnv('SESSION_SECRET', 'dev-only-change-this-session-secret');
+const sessionSecret = requireCoreEnv('SESSION_SECRET', isProduction ? '' : 'dev-only-change-this-session-secret');
 if (Buffer.byteLength(sessionSecret, 'utf8') < 32) {
   throw new Error('SESSION_SECRET debe tener al menos 32 bytes');
 }
+
+const geminiApiKey = readEnv('GEMINI_API_KEY', 'API_KEY_GEMINI');
+const googleClientId = readEnv('GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_AUTH_API_KEY');
+const googleClientSecret = readEnv('GOOGLE_OAUTH_CLIENT_SECRET');
+
+const integrations = Object.freeze({
+  gemini: Boolean(geminiApiKey),
+  google: Boolean(googleClientId && googleClientSecret),
+});
 
 const config = Object.freeze({
   nodeEnv: process.env.NODE_ENV || 'development',
   isProduction,
   port: Number.parseInt(process.env.PORT || '3000', 10),
-  appBaseUrl: normalizeBaseUrl(requireEnv('APP_BASE_URL', 'http://localhost:3000')),
-  geminiApiKey: requireEnv('GEMINI_API_KEY'),
-  geminiModel: requireEnv('GEMINI_MODEL', 'gemini-3.5-flash'),
-  googleClientId: requireEnv('GOOGLE_OAUTH_CLIENT_ID'),
-  googleClientSecret: requireEnv('GOOGLE_OAUTH_CLIENT_SECRET'),
+  appBaseUrl: normalizeBaseUrl(readEnv('APP_BASE_URL')),
+  geminiApiKey,
+  geminiModel: readEnv('GEMINI_MODEL') || 'gemini-3.5-flash',
+  googleClientId,
+  googleClientSecret,
+  integrations,
   sessionSecret,
   sessionKey: crypto.createHash('sha256').update(sessionSecret).digest(),
   aiLimits: Object.freeze({
