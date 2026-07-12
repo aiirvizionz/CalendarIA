@@ -1,240 +1,363 @@
+<div align="center">
+
 # CalendarIA
 
-CalendarIA convierte texto, imágenes y voz en eventos estructurados con Gemini y permite revisarlos antes de guardarlos en Google Calendar.
+### Convierte lenguaje natural, imágenes y voz en eventos listos para tu calendario.
 
-**Aplicación pública:** `https://calendaria.onrender.com/`
+[![CI](https://github.com/aiirvizionz/CalendarIA/actions/workflows/ci.yml/badge.svg)](https://github.com/aiirvizionz/CalendarIA/actions/workflows/ci.yml)
+![Node.js](https://img.shields.io/badge/Node.js-24-339933?logo=nodedotjs&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini-Interactions_API-8E75B2?logo=googlegemini&logoColor=white)
+![Google Calendar](https://img.shields.io/badge/Google_Calendar-API-4285F4?logo=googlecalendar&logoColor=white)
+![Render](https://img.shields.io/badge/Deploy-Render-000000?logo=render&logoColor=white)
 
-## Qué hace
+**[Abrir CalendarIA](https://calendaria.onrender.com/)**
 
-- Crea eventos manuales y los conserva localmente en el navegador.
-- Extrae título, fecha, hora y categoría desde texto o imágenes.
-- Captura voz como audio WAV PCM y la analiza con Gemini.
-- Obliga a revisar el resultado generado por IA antes de guardarlo.
-- Crea y elimina la copia remota del evento en Google Calendar.
-- Migra de forma segura los eventos guardados por versiones antiguas de CalendarIA.
+</div>
+
+---
+
+## El proyecto
+
+**CalendarIA** es una agenda inteligente diseñada para reducir la fricción de crear eventos.
+
+En lugar de llenar formularios campo por campo, el usuario puede escribir una frase, adjuntar una captura o describir un compromiso por voz. Gemini interpreta la entrada, extrae la información relevante y presenta un evento estructurado para revisión antes de enviarlo a Google Calendar.
+
+> “Tengo examen de Redes el próximo martes a las 8 de la mañana.”
+
+```text
+Examen de Redes
+Martes · 08:00
+Categoría: Examen
+```
+
+La IA propone. **El usuario confirma.**
+
+---
+
+## ¿Qué problema resuelve?
+
+Crear un evento suele implicar detener lo que estás haciendo, abrir una aplicación y capturar manualmente título, fecha, hora, categoría y recordatorios.
+
+CalendarIA convierte información que ya existe en lenguaje cotidiano en una acción estructurada:
+
+```text
+Texto ──────┐
+Imagen ─────┼──► Gemini ──► Evento estructurado ──► Revisión ──► Google Calendar
+Voz ────────┘
+```
+
+El objetivo del proyecto es explorar una experiencia de agenda **multimodal, segura y centrada en revisión humana**.
+
+---
+
+## Experiencia multimodal
+
+### Texto
+
+CalendarIA entiende expresiones naturales y temporales como:
+
+- “Mañana tengo que entregar el proyecto a las 4.”
+- “Presentación de IA el viernes a las 9 am.”
+- “Estudiar redes el próximo lunes.”
+
+La fecha local y la zona horaria del usuario forman parte del contexto de extracción.
+
+### Imagen
+
+Una captura de horario, tarea o notificación puede convertirse en un evento. El frontend acepta imágenes JPG, PNG y WebP dentro de límites controlados y el backend vuelve a validar el contenido antes de enviarlo a Gemini.
+
+### Voz
+
+La aplicación captura audio mono mediante `AudioWorklet`, genera WAV PCM de 16 bits y envía la grabación para extracción estructurada.
+
+La grabación se limita a 60 segundos y el evento resultante sigue pasando por la misma revisión humana que texto e imagen.
+
+---
+
+## Flujo de producto
+
+```mermaid
+flowchart LR
+    A[Entrada del usuario] --> B{Modalidad}
+    B -->|Texto| C[Texto natural]
+    B -->|Imagen| D[Captura o fotografía]
+    B -->|Voz| E[WAV PCM]
+
+    C --> F[API de CalendarIA]
+    D --> F
+    E --> F
+
+    F --> G[Gemini Interactions API]
+    G --> H[JSON Schema]
+    H --> I[Validación de dominio]
+    I --> J[Revisión humana]
+    J -->|Confirmar| K[Google Calendar]
+    J -->|Descartar| L[Sin cambios]
+```
+
+---
 
 ## Arquitectura
 
+CalendarIA mantiene una separación explícita entre interfaz, dominio, servicios externos y seguridad.
+
+```text
+CalendarIA
+│
+├── Browser
+│   ├── app.js                  UI y flujo de interacción
+│   ├── api.js                  Cliente HTTP same-origin
+│   ├── store.js                Persistencia local versionada
+│   ├── media.js                Imagen y captura WAV PCM
+│   └── pcm-recorder-worklet.js Procesamiento de audio
+│
+├── Express API
+│   ├── config.js               Configuración de entorno
+│   ├── event.js                Dominio y validación
+│   ├── session.js              Sesiones y CSRF
+│   ├── rate-limit.js           Límites de uso
+│   ├── gemini.js               Extracción multimodal
+│   └── google.js               OAuth y Calendar API
+│
+├── Google Gemini
+│   └── Interactions API
+│
+└── Google Calendar
+    └── Events API
+```
+
+El frontend se mantiene en **Vanilla JavaScript modular**. La decisión es intencional: el proyecto no necesita un framework de componentes para resolver su complejidad actual y evita añadir una capa de abstracción sin beneficio funcional directo.
+
+---
+
+## IA con salida estructurada
+
+El navegador nunca decide las instrucciones privilegiadas del modelo.
+
+El prompt de sistema pertenece al backend y Gemini recibe una tarea limitada: extraer un único evento.
+
+La respuesta se restringe mediante JSON Schema:
+
+```json
+{
+  "titulo": "Presentación final",
+  "fecha": "2026-12-01",
+  "hora": "09:00",
+  "categoria": "presentacion"
+}
+```
+
+Después de Gemini, CalendarIA aplica una segunda capa de validación sobre:
+
+- título;
+- fecha real de calendario;
+- hora de 24 horas;
+- categorías permitidas;
+- recordatorios permitidos.
+
+La aplicación configura las interacciones con `store: false` y mantiene el principio de **human-in-the-loop**: ningún resultado generado por IA se agenda automáticamente.
+
+---
+
+## Seguridad por diseño
+
+CalendarIA fue endurecido pensando en exposición pública.
+
+### Protección de Gemini
+
+- El cliente no puede proporcionar ni reemplazar el system prompt.
+- El endpoint de IA requiere una sesión autenticada.
+- Las solicitudes requieren CSRF token.
+- Existen límites adicionales por usuario e IP.
+- Imagen y audio utilizan allowlists de MIME y límites de tamaño.
+- La salida del modelo se valida nuevamente en el dominio.
+
+### OAuth y Google Calendar
+
+El flujo utiliza **OAuth 2.0 Authorization Code + PKCE**.
+
 ```text
 Browser
-├── public/js/app.js       UI y coordinación
-├── public/js/api.js       Cliente HTTP same-origin + CSRF
-├── public/js/store.js     Estado local versionado
-└── public/js/media.js     Imagen y captura WAV PCM
-              │
-              ▼
-Express API
-├── OAuth 2.0 + PKCE
-├── sesión server-side
-├── CSRF y rate limits
-├── validación de eventos
-├── Google Calendar service
-└── Gemini Interactions API
-              │
-       ┌──────┴──────┐
-       ▼             ▼
-    Gemini       Google APIs
+   │
+   ▼
+CalendarIA backend
+   │
+   ├── state aleatorio
+   ├── PKCE verifier
+   └── redirect a Google
+            │
+            ▼
+      Google Authorization
+            │
+            ▼
+      Authorization Code
+            │
+            ▼
+CalendarIA backend
+   │
+   ├── intercambio de código
+   ├── access token
+   └── refresh token
 ```
 
-El navegador **no recibe en texto claro** `GEMINI_API_KEY`, `GOOGLE_OAUTH_CLIENT_SECRET`, access tokens ni refresh tokens. Las credenciales OAuth permanecen en el store de sesión del servidor. La cookie contiene únicamente un identificador aleatorio firmado mediante HMAC y se configura como `HttpOnly`, `SameSite=Lax` y `Secure` en producción.
+Los access tokens y refresh tokens permanecen en el servidor. La cookie del navegador contiene únicamente un identificador de sesión aleatorio firmado mediante HMAC.
 
-El estado temporal de OAuth (`state` y PKCE verifier) sí viaja en una cookie separada de corta duración, cifrada y autenticada mediante AES-256-GCM. Esa cookie existe únicamente durante el callback OAuth.
+El estado temporal de OAuth se cifra y autentica con AES-256-GCM.
 
-## Seguridad
+### Hardening HTTP
 
-La aplicación pública aplica las siguientes medidas:
+La API incorpora:
 
-- OAuth Authorization Code con PKCE y `state` aleatorio de corta duración.
-- Tokens OAuth procesados y almacenados exclusivamente en el servidor.
-- Cookie de sesión con ID aleatorio firmado; no contiene tokens OAuth.
-- Revocación de la credencial de Google al cerrar sesión.
-- CSRF token obligatorio para operaciones con estado.
-- Rate limit general por IP y límites adicionales por IP/usuario para IA.
-- Prompt de sistema controlado por servidor; el cliente no puede reemplazarlo.
-- Gemini Interactions API con salida JSON Schema y segunda validación de dominio.
-- `store: false` en las interacciones de Gemini.
-- Allowlist de MIME y límites de tamaño para imagen/audio.
-- Timeouts para dependencias externas y para el servidor HTTP.
-- CSP estricta, HSTS en producción, `nosniff`, `frame-ancestors 'none'` y Permissions Policy.
-- Renderizado de datos dinámicos con APIs DOM seguras; no se usa `innerHTML` con contenido del usuario o de la IA.
-- Static assets limitados a `public/`; el repositorio completo no se expone como raíz pública.
-- Request IDs y errores 5xx sanitizados.
+- Content Security Policy estricta;
+- HSTS en producción;
+- `X-Content-Type-Options: nosniff`;
+- protección contra framing;
+- Referrer Policy;
+- Permissions Policy;
+- Request IDs;
+- errores 5xx sanitizados;
+- timeouts para servicios externos;
+- límites de tamaño de request.
 
-> Las sesiones y los rate limits actuales viven en memoria del proceso. Esta configuración está diseñada para una sola instancia de Render. Antes de escalar horizontalmente, ambos stores deben moverse a Redis u otro almacenamiento distribuido.
+Los datos dinámicos se renderizan con APIs DOM seguras y no mediante `innerHTML` con contenido procedente del usuario o del modelo.
 
-## Privacidad y flujo de datos
+---
 
-- Los eventos locales se guardan en `localStorage` del dispositivo.
-- El texto, imagen o audio se envía al backend de CalendarIA únicamente cuando el usuario solicita análisis con Gemini.
-- Las funciones de IA requieren iniciar sesión con Google para asociar cuotas y limitar abuso.
-- CalendarIA configura las interacciones de Gemini con `store: false`.
-- Un evento generado por IA no se guarda hasta que el usuario lo revisa y confirma.
-- Si el usuario está autenticado, los eventos confirmados se crean en Google Calendar.
-- Al eliminar un evento sincronizado desde CalendarIA, primero se elimina la copia de Google Calendar; si Google falla, se conserva la copia local para evitar una falsa confirmación de borrado.
+## Sincronización de eventos
 
-## Requisitos
-
-- Node.js 24.
-- Una API key de Gemini.
-- Un proyecto de Google Cloud con OAuth 2.0 configurado.
-- Google Calendar API habilitada.
-
-## Configuración local
-
-1. Clona el repositorio e instala dependencias:
-
-```bash
-git clone https://github.com/aiirvizionz/CalendarIA.git
-cd CalendarIA
-npm ci
-```
-
-2. Copia el archivo de entorno:
-
-```bash
-cp .env.example .env
-```
-
-3. Configura las variables:
-
-```dotenv
-NODE_ENV=development
-APP_BASE_URL=http://localhost:3000
-GEMINI_API_KEY=...
-GEMINI_MODEL=gemini-3.5-flash
-GOOGLE_OAUTH_CLIENT_ID=...
-GOOGLE_OAUTH_CLIENT_SECRET=...
-SESSION_SECRET=...
-```
-
-Genera `SESSION_SECRET` con al menos 32 bytes aleatorios. La clave protege la firma del ID de sesión y el estado OAuth temporal. Por ejemplo:
-
-```bash
-openssl rand -base64 48
-```
-
-4. En el cliente OAuth de Google agrega como URI de redirección autorizada:
+Cada evento local mantiene un estado explícito:
 
 ```text
-http://localhost:3000/api/auth/google/callback
+local
+syncing
+synced
+failed
 ```
 
-5. Inicia CalendarIA:
+Los eventos sincronizados conservan el `googleEventId` devuelto por Calendar API.
 
-```bash
-npm start
+Al eliminar un evento sincronizado, CalendarIA intenta borrar primero la copia remota. La copia local solo se elimina después de recibir confirmación de Google, evitando mostrar una eliminación falsa cuando existe un fallo de red o de autorización.
+
+---
+
+## Persistencia local
+
+Los eventos se almacenan en un esquema local versionado:
+
+```json
+{
+  "version": 2,
+  "events": []
+}
 ```
 
-Abre `http://localhost:3000`.
+CalendarIA incluye migración para datos creados por versiones anteriores del proyecto, validación de registros almacenados y recuperación segura ante JSON corrupto.
 
-## Google OAuth en producción
+Los identificadores locales utilizan `crypto.randomUUID()`.
 
-Para `https://calendaria.onrender.com`, configura en Google Cloud:
+---
 
-```text
-Authorized redirect URI:
-https://calendaria.onrender.com/api/auth/google/callback
-```
+## Stack tecnológico
 
-El proyecto solicita los scopes:
+| Capa | Tecnología |
+|---|---|
+| Frontend | HTML5, CSS, Vanilla JavaScript ES Modules |
+| Backend | Node.js 24, Express |
+| Inteligencia artificial | Gemini Interactions API |
+| Salida de IA | JSON Schema + validación de dominio |
+| Autorización | Google OAuth 2.0 + PKCE |
+| Calendario | Google Calendar API |
+| Audio | Web Audio API, AudioWorklet, WAV PCM |
+| Persistencia | localStorage versionado + sesión server-side |
+| CI | GitHub Actions |
+| Deploy | Render |
 
-```text
-openid
-email
-profile
-https://www.googleapis.com/auth/calendar.events
-```
+---
 
-No cambies `APP_BASE_URL` a un dominio diferente del dominio público real de la aplicación: el backend genera el `redirect_uri` OAuth a partir de esa variable.
+## Calidad de código
 
-## Despliegue en Render
+El repositorio incluye pruebas con `node:test` y validación sintáctica automatizada.
 
-`render.yaml` define:
-
-- Node 24.
-- `NODE_ENV=production`.
-- instalación reproducible mediante `npm ci`.
-- health check en `/health`.
-- `SESSION_SECRET` generado por Render.
-- secretos de Gemini y Google marcados para configuración manual.
-
-Variables secretas que debes agregar en Render:
-
-```text
-GEMINI_API_KEY
-GOOGLE_OAUTH_CLIENT_ID
-GOOGLE_OAUTH_CLIENT_SECRET
-```
-
-Después de desplegar, confirma que `APP_BASE_URL` coincida con el dominio público y registra el callback exacto en Google Cloud.
-
-## Calidad y pruebas
-
-Ejecuta el chequeo completo:
-
-```bash
-npm run ci
-```
-
-Incluye:
-
-```bash
-npm run check   # node --check sobre JavaScript del proyecto
-npm test        # node:test
-```
-
-Las pruebas cubren, entre otros casos:
+La cobertura funcional actual contempla:
 
 - fechas reales y años bisiestos;
-- validación HH:MM de 24 horas;
+- horas válidas en formato de 24 horas;
 - categorías y recordatorios permitidos;
-- cálculo del fin de un evento sin mezclar UTC y hora local;
-- segunda validación de la salida estructurada de Gemini;
-- MIME/base64 multimedia;
-- extracción de texto desde `model_output` de Interactions API.
+- cálculo de fin de evento sin mezclar UTC con hora local;
+- validación secundaria de respuestas de IA;
+- MIME y Base64 multimedia;
+- extracción de `model_output` desde Interactions API.
 
-GitHub Actions ejecuta `npm ci` y `npm run ci` con Node 24.
+GitHub Actions valida cada Pull Request y los cambios de `main` sobre Node.js 24.
 
-## Estructura
+---
 
-```text
-CalendarIA/
-├── public/
-│   ├── index.html
-│   ├── styles.css
-│   └── js/
-│       ├── api.js
-│       ├── app.js
-│       ├── media.js
-│       ├── pcm-recorder-worklet.js
-│       └── store.js
-├── scripts/
-│   └── check-syntax.js
-├── src/
-│   ├── config.js
-│   ├── lib/
-│   │   ├── event.js
-│   │   ├── rate-limit.js
-│   │   └── session.js
-│   └── services/
-│       ├── gemini.js
-│       └── google.js
-├── test/
-│   ├── event.test.js
-│   └── gemini.test.js
-├── server.js
-├── render.yaml
-└── package.json
-```
+## Decisiones de ingeniería
 
-## Limitaciones actuales
+### ¿Por qué no React?
 
-- El almacenamiento principal de eventos sigue siendo local al navegador; CalendarIA no incluye una base de datos multi-dispositivo.
-- No se importan eventos existentes desde Google Calendar.
-- Las sesiones y los límites de uso son locales a la instancia del servidor.
-- Un reinicio o redeploy del proceso invalida las sesiones activas y obliga a reconectar Google.
-- La captura de voz requiere un navegador con `AudioWorklet` y acceso seguro al micrófono.
+La interfaz es una aplicación compacta con un conjunto limitado de estados y vistas. ES Modules permiten separar responsabilidades sin introducir bundle, runtime de framework o tooling adicional.
 
-## Licencia y uso
+### ¿Por qué revisión humana?
 
-Antes de reutilizar el proyecto en un producto comercial, revisa los términos, cuotas y políticas vigentes de Gemini API y Google Calendar API, y añade los avisos legales o de privacidad que correspondan a tu operación.
+Fechas y horas son datos sensibles a ambigüedad lingüística. CalendarIA trata la IA como un extractor asistido, no como una autoridad final.
+
+### ¿Por qué sesiones server-side?
+
+Los tokens OAuth no deben quedar disponibles para JavaScript del navegador. El servidor conserva las credenciales y el cliente únicamente mantiene un identificador de sesión firmado.
+
+### ¿Por qué un modelo de evento propio?
+
+Separar el evento de dominio del recurso de Google Calendar permite validar, migrar y evolucionar CalendarIA sin acoplar toda la aplicación al formato de una API externa.
+
+---
+
+## Estado del proyecto
+
+**CalendarIA 2.0** representa la evolución del MVP inicial hacia una arquitectura preparada para exposición pública en una única instancia de aplicación.
+
+### Implementado
+
+- [x] Creación manual de eventos
+- [x] Extracción mediante texto
+- [x] Análisis de imágenes
+- [x] Captura y análisis de voz
+- [x] Revisión humana de eventos generados
+- [x] OAuth 2.0 + PKCE
+- [x] Integración con Google Calendar
+- [x] Refresh de tokens
+- [x] Eliminación remota consistente
+- [x] Rate limiting
+- [x] CSRF
+- [x] CSP y hardening HTTP
+- [x] Persistencia local versionada
+- [x] Tests y CI
+- [x] Interfaz responsive
+
+### Próximos retos
+
+- [ ] Persistencia multi-dispositivo
+- [ ] Sincronización bidireccional con Google Calendar
+- [ ] Edición de eventos sincronizados desde la interfaz
+- [ ] Redis para sesiones y rate limiting distribuido
+- [ ] Métricas y observabilidad
+- [ ] PWA y experiencia offline
+
+---
+
+## Autor
+
+**David Alejandro Lopez Huerta**  
+Estudiante de Ingeniería en Sistemas · FIME, UANL
+
+Proyecto enfocado en integración de IA multimodal, desarrollo web y diseño seguro de servicios públicos.
+
+[GitHub @aiirvizionz](https://github.com/aiirvizionz)
+
+---
+
+<div align="center">
+
+**CalendarIA · La IA propone. Tú decides qué entra a tu calendario.**
+
+</div>

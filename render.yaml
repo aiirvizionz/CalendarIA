@@ -1,14 +1,17 @@
 services:
   - type: web
     name: calendaria
-    env: node
+    runtime: node
     plan: free
-    buildCommand: npm ci
+    branch: main
+    buildCommand: npm ci && npm run ci
     startCommand: npm start
+    autoDeployTrigger: checksPass
     healthCheckPath: /health
+    maxShutdownDelaySeconds: 30
     envVars:
       - key: NODE_VERSION
-        value: 24
+        value: 24.14.1
       - key: NODE_ENV
         value: production
       - key: APP_BASE_URL
