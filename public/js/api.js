@@ -66,6 +66,10 @@ export async function analyzeEvent(input) {
   });
 }
 
+export async function listGoogleEvents() {
+  return request('/api/calendar/events');
+}
+
 export async function createGoogleEvent(event) {
   return request('/api/calendar/events', {
     method: 'POST',
