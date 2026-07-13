@@ -189,7 +189,6 @@ async function listCalendarEvents(accessToken, timeZone) {
       singleEvents: 'true',
       orderBy: 'startTime',
       showDeleted: 'false',
-      timeMin: new Date().toISOString(),
       timeZone,
       maxResults: String(CALENDAR_PAGE_SIZE),
     });
