@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const { ValidationError } = require('../src/lib/event');
 const {
   EVENT_SCHEMA,
+  buildInteractionRequest,
   createProviderError,
   extractInteractionText,
   isRetryableStatus,
@@ -25,6 +26,43 @@ test('acepta texto dentro del límite de análisis', () => {
     image: null,
     audio: null,
   });
+});
+
+test('construye texto como un UserInputStep de Interactions API', () => {
+  const request = validateAnalyzeRequest({ text: 'Examen mañana a las 8' });
+  const payload = buildInteractionRequest(request, 'America/Mexico_City');
+
+  assert.deepEqual(payload.input, [{
+    type: 'user_input',
+    content: [{ type: 'text', text: 'Examen mañana a las 8' }],
+  }]);
+});
+
+test('anida imagen y texto dentro del mismo UserInputStep', () => {
+  const request = validateAnalyzeRequest({
+    text: 'Extrae el evento de esta captura',
+    image: { mimeType: 'image/png', data: 'YWJjZA==' },
+  });
+  const payload = buildInteractionRequest(request, 'America/Mexico_City');
+
+  assert.equal(payload.input.length, 1);
+  assert.equal(payload.input[0].type, 'user_input');
+  assert.deepEqual(payload.input[0].content, [
+    { type: 'text', text: 'Extrae el evento de esta captura' },
+    { type: 'image', mime_type: 'image/png', data: 'YWJjZA==' },
+  ]);
+});
+
+test('anida audio WAV dentro de un UserInputStep', () => {
+  const request = validateAnalyzeRequest({
+    audio: { mimeType: 'audio/wav', data: 'YWJjZA==' },
+  });
+  const payload = buildInteractionRequest(request, 'America/Mexico_City');
+
+  assert.deepEqual(payload.input, [{
+    type: 'user_input',
+    content: [{ type: 'audio', mime_type: 'audio/wav', data: 'YWJjZA==' }],
+  }]);
 });
 
 test('rechaza solicitudes vacías y texto excesivo', () => {
