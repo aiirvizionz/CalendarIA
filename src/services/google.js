@@ -384,7 +384,7 @@ async function findDuplicateCalendarEvent(accessToken, event, timeZone) {
 
 async function createCalendarEvent(accessToken, event, timeZone) {
   const duplicate = await findDuplicateCalendarEvent(accessToken, event, timeZone);
-  if (duplicate) return { ...duplicate, duplicate: true };
+  if (duplicate) return { event: duplicate, duplicate: true };
 
   const response = await fetchWithTimeout(GOOGLE_CALENDAR_URL, {
     method: 'POST',
@@ -395,7 +395,7 @@ async function createCalendarEvent(accessToken, event, timeZone) {
     body: JSON.stringify(buildCalendarEvent(event, timeZone)),
   });
   const created = await readGoogleResponse(response, 'No se pudo crear el evento en Google Calendar');
-  return { ...created, duplicate: false };
+  return { event: created, duplicate: false };
 }
 
 async function updateCalendarEvent(accessToken, googleEventId, event, timeZone) {
