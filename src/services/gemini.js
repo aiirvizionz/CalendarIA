@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const config = require('../config');
 const { CATEGORIES, normalizeAiEvent, ValidationError } = require('../lib/event');
 
@@ -124,6 +125,20 @@ function safeProviderDetail(value) {
     .slice(0, 300);
 }
 
+function logAiFailure(error, stage, detail = {}) {
+  const payload = {
+    event: 'ai_analysis_failed',
+    failureId: crypto.randomUUID(),
+    stage,
+    code: error?.code || 'AI_ERROR',
+    statusCode: Number(error?.statusCode || 500),
+    model: config.geminiModel,
+    provider: error?.provider || undefined,
+    ...detail,
+  };
+  console.error(JSON.stringify(payload));
+}
+
 function isRetryableStatus(status) {
   return RETRYABLE_PROVIDER_STATUSES.has(Number(status));
 }
@@ -143,15 +158,16 @@ function createProviderError(status, payload = null) {
     message = 'Gemini alcanzó su límite temporal. Intenta nuevamente en unos minutos.';
   } else if (httpStatus === 401 || httpStatus === 403) {
     code = 'AI_PROVIDER_AUTH_ERROR';
-    statusCode = 503;
-    message = 'La credencial de Gemini fue rechazada por el proveedor';
+    statusCode = 424;
+    message = 'Gemini rechazó la credencial configurada. Revisa la API key en Render.';
   } else if (httpStatus === 404) {
     code = 'AI_MODEL_UNAVAILABLE';
-    statusCode = 503;
-    message = 'El modelo de IA configurado no está disponible';
+    statusCode = 424;
+    message = `El modelo ${config.geminiModel} no está disponible para esta API key.`;
   } else if (httpStatus === 400) {
     code = 'AI_PROVIDER_REQUEST_ERROR';
-    message = 'Gemini rechazó la solicitud estructurada';
+    statusCode = 422;
+    message = 'Gemini rechazó el formato de análisis. Revisa el log ai_analysis_failed en Render.';
   }
 
   const error = new Error(message);
@@ -212,7 +228,9 @@ async function requestInteraction(body) {
         await sleep(retryDelayMs(attempt));
         continue;
       }
-      throw createNetworkError(error);
+      const networkError = createNetworkError(error);
+      logAiFailure(networkError, 'provider_network', { attempt });
+      throw networkError;
     }
 
     const raw = await response.text();
@@ -230,10 +248,14 @@ async function requestInteraction(body) {
       continue;
     }
 
-    throw createProviderError(response.status, payload);
+    const providerError = createProviderError(response.status, payload);
+    logAiFailure(providerError, 'provider_response', { attempt });
+    throw providerError;
   }
 
-  throw createNetworkError(lastNetworkError);
+  const networkError = createNetworkError(lastNetworkError);
+  logAiFailure(networkError, 'provider_network', { attempt: MAX_PROVIDER_ATTEMPTS });
+  throw networkError;
 }
 
 async function analyzeEvent(input, timeZone) {
@@ -267,19 +289,32 @@ async function analyzeEvent(input, timeZone) {
 
   const text = extractInteractionText(payload);
   if (!text) {
-    const error = new Error('La IA no devolvió un evento utilizable');
-    error.statusCode = 502;
+    const error = new Error('Gemini no devolvió un evento utilizable. Intenta describir el evento de otra forma.');
+    error.statusCode = 422;
     error.code = 'AI_EMPTY_RESPONSE';
+    error.provider = {
+      httpStatus: 200,
+      status: 'EMPTY_MODEL_OUTPUT',
+      message: `Interaction ${safeProviderDetail(payload?.id) || 'sin id'} sin texto model_output`,
+      model: config.geminiModel,
+    };
+    logAiFailure(error, 'extract_output', { stepCount: Array.isArray(payload?.steps) ? payload.steps.length : 0 });
     throw error;
   }
 
   try {
     return normalizeAiEvent(JSON.parse(text));
-  } catch (error) {
-    if (error instanceof ValidationError) throw error;
-    const invalid = new Error('La IA devolvió una respuesta que no pudo validarse');
-    invalid.statusCode = 502;
+  } catch (cause) {
+    const invalid = new Error('Gemini devolvió un evento con formato inválido. Intenta nuevamente.');
+    invalid.statusCode = 422;
     invalid.code = 'AI_INVALID_RESPONSE';
+    invalid.provider = {
+      httpStatus: 200,
+      status: 'INVALID_MODEL_OUTPUT',
+      message: safeProviderDetail(cause?.message) || 'La salida no pasó la validación de dominio',
+      model: config.geminiModel,
+    };
+    logAiFailure(invalid, 'validate_output', { outputChars: text.length });
     throw invalid;
   }
 }
