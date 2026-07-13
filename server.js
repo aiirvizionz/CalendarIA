@@ -29,6 +29,7 @@ const {
   ensureAccessToken,
   exchangeAuthorizationCode,
   getUserInfo,
+  listCalendarEvents,
   revokeToken,
   updateCalendarEvent,
 } = require('./src/services/google');
@@ -49,7 +50,7 @@ function securityHeaders(req, res, next) {
     "script-src 'self'",
     "style-src 'self' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://*.googleusercontent.com",
     "media-src 'self' blob:",
     "connect-src 'self'",
   ];
@@ -259,6 +260,22 @@ app.post(
   },
 );
 
+app.get(
+  '/api/calendar/events',
+  requireSession,
+  requireGoogleIntegration,
+  calendarUserLimiter,
+  async (req, res, next) => {
+    try {
+      const accessToken = await googleContext(req, res);
+      const events = await listCalendarEvents(accessToken, getTimeZone(req));
+      return res.json({ events });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+
 app.post(
   '/api/calendar/events',
   requireSession,
@@ -355,6 +372,7 @@ app.use((error, req, res, next) => {
       requestId: req.requestId,
       code,
       message: error.message,
+      provider: error.provider || undefined,
       stack: config.isProduction ? undefined : error.stack,
     }));
   }
