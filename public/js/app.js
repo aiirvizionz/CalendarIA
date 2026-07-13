@@ -2,6 +2,7 @@ import {
   analyzeEvent,
   createGoogleEvent,
   deleteGoogleEvent,
+  listGoogleEvents,
   loadSession,
   logout,
   startGoogleAuth,
@@ -17,6 +18,16 @@ const CATEGORY_LABELS = Object.freeze({
   tarea: 'Tarea',
   otro: 'Otro',
 });
+
+const GOOGLE_EVENT_TYPE_LABELS = Object.freeze({
+  default: 'Calendario',
+  birthday: 'Cumpleaños',
+  focusTime: 'Concentración',
+  outOfOffice: 'Fuera de oficina',
+  workingLocation: 'Ubicación de trabajo',
+  fromGmail: 'Gmail',
+});
+
 const REMINDER_LABELS = Object.freeze({
   10: '10 min',
   60: '1 hora',
@@ -32,6 +43,9 @@ const state = {
   image: null,
   audioCapture: null,
   audioProcessing: false,
+  calendarEvents: [],
+  calendarEventsLoaded: false,
+  eventsLoading: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -71,7 +85,11 @@ function selectedReminders(group) {
   return values.length ? values : [10];
 }
 
-function formatEventDate(event) {
+function reminderLabel(value) {
+  return REMINDER_LABELS[value] || `${value} min`;
+}
+
+function formatLocalEventDate(event) {
   const parsed = new Date(`${event.date}T${event.time}:00`);
   if (Number.isNaN(parsed.getTime())) return `${event.date} · ${event.time}`;
   return new Intl.DateTimeFormat('es-MX', {
@@ -81,6 +99,58 @@ function formatEventDate(event) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(parsed);
+}
+
+function formatGoogleEventDate(event) {
+  if (event.startDateTime) {
+    const parsed = new Date(event.startDateTime);
+    if (!Number.isNaN(parsed.getTime())) {
+      return new Intl.DateTimeFormat('es-MX', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(parsed);
+    }
+  }
+
+  if (event.startDate) {
+    const parsed = new Date(`${event.startDate}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      const date = new Intl.DateTimeFormat('es-MX', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }).format(parsed);
+      return `${date} · Todo el día`;
+    }
+  }
+
+  return 'Fecha no disponible';
+}
+
+function eventTimestamp(item) {
+  if (item.source === 'google') {
+    const value = item.event.startDateTime || (item.event.startDate ? `${item.event.startDate}T00:00:00` : '');
+    const parsed = value ? new Date(value).getTime() : Number.NaN;
+    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+  }
+
+  const parsed = new Date(`${item.event.date}T${item.event.time}:00`).getTime();
+  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+}
+
+function compareAgendaItems(a, b) {
+  const now = Date.now();
+  const aTime = eventTimestamp(a);
+  const bTime = eventTimestamp(b);
+  const aPast = aTime < now;
+  const bPast = bTime < now;
+  if (aPast !== bPast) return aPast ? 1 : -1;
+  return aPast ? bTime - aTime : aTime - bTime;
 }
 
 function integrationEnabled(name) {
@@ -93,6 +163,36 @@ function setAuthGate(gateId, title, description, hidden) {
   if (hidden) return;
   gate.querySelector('strong').textContent = title;
   gate.querySelector('p').textContent = description;
+}
+
+function showAvatarFallback(name) {
+  const fallback = $('userAvatarFallback');
+  fallback.textContent = String(name || '?').trim().charAt(0) || '?';
+  fallback.classList.remove('is-hidden');
+  $('userAvatar').classList.add('is-hidden');
+}
+
+function updateAvatar() {
+  const name = state.session.user?.name || state.session.user?.email || '';
+  const picture = state.session.user?.picture || '';
+  const avatar = $('userAvatar');
+
+  avatar.onerror = () => showAvatarFallback(name);
+  avatar.onload = () => {
+    avatar.classList.remove('is-hidden');
+    $('userAvatarFallback').classList.add('is-hidden');
+  };
+
+  if (!picture) {
+    avatar.removeAttribute('src');
+    avatar.alt = '';
+    showAvatarFallback(name);
+    return;
+  }
+
+  showAvatarFallback(name);
+  avatar.alt = name ? `Foto de ${name}` : 'Foto de perfil';
+  avatar.src = picture;
 }
 
 function updateAuthUI() {
@@ -110,9 +210,12 @@ function updateAuthUI() {
       : googleConfigured
         ? 'Conectar Google'
         : 'Google no configurado';
+
   $('userChip').classList.toggle('is-hidden', !authenticated);
   $('analyzeButton').disabled = !aiAvailable;
   $('recordButton').disabled = !aiAvailable;
+  $('refreshEventsButton').disabled = !authenticated || !googleConfigured || state.eventsLoading;
+  $('refreshEventsButton').classList.toggle('is-loading', state.eventsLoading);
 
   let gateTitle = 'Inicia sesión para usar Gemini';
   let gateDescription = 'Así protegemos la cuota de la API y asociamos límites de uso a una sesión real.';
@@ -136,14 +239,16 @@ function updateAuthUI() {
   );
 
   if (authenticated) {
-    $('userName').textContent = state.session.user?.name || state.session.user?.email || '';
-    const picture = state.session.user?.picture || '';
-    $('userAvatar').src = picture;
-    $('userAvatar').alt = state.session.user?.name ? `Foto de ${state.session.user.name}` : 'Foto de perfil';
+    const name = state.session.user?.name || state.session.user?.email || '';
+    $('userName').textContent = name;
+    updateAvatar();
   } else {
     $('userName').textContent = '';
     $('userAvatar').removeAttribute('src');
     $('userAvatar').alt = '';
+    $('userAvatar').classList.add('is-hidden');
+    $('userAvatarFallback').textContent = '';
+    $('userAvatarFallback').classList.add('is-hidden');
   }
 }
 
@@ -162,28 +267,110 @@ function setActiveTab(tab) {
   $('reviewPanel').classList.add('is-hidden');
 }
 
+function agendaItems() {
+  const googleItems = state.calendarEvents.map((event) => ({
+    source: 'google',
+    key: `google:${event.id}`,
+    event,
+  }));
+  const remoteIds = new Set(state.calendarEvents.map((event) => event.id));
+
+  const localItems = listEvents()
+    .filter((event) => {
+      if (!state.calendarEventsLoaded) return true;
+      if (!event.googleEventId) return true;
+      return !remoteIds.has(event.googleEventId) && event.syncStatus !== 'synced';
+    })
+    .map((event) => ({
+      source: 'local',
+      key: `local:${event.id}`,
+      event,
+    }));
+
+  return [...googleItems, ...localItems].sort(compareAgendaItems);
+}
+
+function googleReminderText(event) {
+  if (event.reminders.length) {
+    return `Aviso: ${event.reminders.map(reminderLabel).join(', ')}`;
+  }
+  return event.useDefaultReminders ? 'Avisos de Google' : 'Sin aviso';
+}
+
 function renderEvents() {
-  const events = listEvents();
+  const items = agendaItems();
   const list = $('eventsList');
   list.replaceChildren();
-  $('eventCount').textContent = String(events.length);
-  $('emptyState').classList.toggle('is-hidden', events.length > 0);
+  $('eventCount').textContent = String(items.length);
+  $('emptyState').classList.toggle('is-hidden', items.length > 0 || state.eventsLoading);
 
-  for (const event of events) {
+  for (const item of items) {
     const fragment = $('eventTemplate').content.cloneNode(true);
     const card = fragment.querySelector('.event-card');
-    card.dataset.eventId = event.id;
+    const event = item.event;
+    card.dataset.eventId = item.key;
     fragment.querySelector('.event-title').textContent = event.title;
-    fragment.querySelector('.event-date').textContent = formatEventDate(event);
-    fragment.querySelector('.event-category').textContent = CATEGORY_LABELS[event.category] || event.category;
-    fragment.querySelector('.event-reminders').textContent = `Aviso: ${event.reminders.map((value) => REMINDER_LABELS[value] || `${value} min`).join(', ')}`;
 
-    const syncBadge = fragment.querySelector('.sync-badge');
-    const syncLabels = { local: 'Local', syncing: 'Sincronizando…', synced: 'Google ✓', failed: 'Error de sync' };
-    syncBadge.textContent = syncLabels[event.syncStatus] || 'Local';
+    const sourceBadge = fragment.querySelector('.sync-badge');
+    const category = fragment.querySelector('.event-category');
+    const reminders = fragment.querySelector('.event-reminders');
+    const openLink = fragment.querySelector('.open-event');
 
-    fragment.querySelector('.delete-event').addEventListener('click', () => handleDeleteEvent(event));
+    if (item.source === 'google') {
+      fragment.querySelector('.event-date').textContent = formatGoogleEventDate(event);
+      sourceBadge.textContent = 'Google';
+      category.textContent = GOOGLE_EVENT_TYPE_LABELS[event.eventType] || 'Calendario';
+      reminders.textContent = googleReminderText(event);
+      if (event.htmlLink) {
+        openLink.href = event.htmlLink;
+        openLink.classList.remove('is-hidden');
+      }
+    } else {
+      fragment.querySelector('.event-date').textContent = formatLocalEventDate(event);
+      const syncLabels = {
+        local: 'Local',
+        syncing: 'Sincronizando…',
+        synced: 'Google ✓',
+        failed: 'Error de sync',
+      };
+      sourceBadge.textContent = syncLabels[event.syncStatus] || 'Local';
+      category.textContent = CATEGORY_LABELS[event.category] || event.category;
+      reminders.textContent = `Aviso: ${event.reminders.map(reminderLabel).join(', ')}`;
+      if (event.googleEventUrl) {
+        openLink.href = event.googleEventUrl;
+        openLink.classList.remove('is-hidden');
+      }
+    }
+
+    fragment.querySelector('.delete-event').addEventListener('click', () => handleDeleteEvent(item));
     list.appendChild(fragment);
+  }
+}
+
+async function refreshGoogleEvents({ silent = false } = {}) {
+  if (!state.session.authenticated || !integrationEnabled('google')) {
+    state.calendarEvents = [];
+    state.calendarEventsLoaded = false;
+    renderEvents();
+    return;
+  }
+
+  state.eventsLoading = true;
+  updateAuthUI();
+  renderEvents();
+
+  try {
+    const result = await listGoogleEvents();
+    state.calendarEvents = Array.isArray(result?.events) ? result.events : [];
+    state.calendarEventsLoaded = true;
+    renderEvents();
+    if (!silent) showToast('Google Calendar actualizado', 'success');
+  } catch (error) {
+    if (!silent) showToast(errorMessage(error), 'error');
+  } finally {
+    state.eventsLoading = false;
+    updateAuthUI();
+    renderEvents();
   }
 }
 
@@ -210,7 +397,7 @@ async function saveEvent(event) {
       googleEventUrl: result.htmlLink,
       syncStatus: 'synced',
     });
-    renderEvents();
+    await refreshGoogleEvents({ silent: true });
     showToast('Evento guardado en Google Calendar', 'success');
     return synced;
   } catch (error) {
@@ -221,7 +408,32 @@ async function saveEvent(event) {
   }
 }
 
-async function handleDeleteEvent(event) {
+function removeLocalCopies(googleEventId) {
+  if (!googleEventId) return;
+  for (const localEvent of listEvents()) {
+    if (localEvent.googleEventId === googleEventId) removeEvent(localEvent.id);
+  }
+}
+
+async function handleDeleteEvent(item) {
+  if (item.source === 'google') {
+    const confirmed = window.confirm(`¿Eliminar “${item.event.title}” de Google Calendar?`);
+    if (!confirmed) return;
+
+    try {
+      await deleteGoogleEvent(item.event.id);
+      removeLocalCopies(item.event.id);
+      state.calendarEvents = state.calendarEvents.filter((event) => event.id !== item.event.id);
+      renderEvents();
+      showToast('Evento eliminado de Google Calendar', 'success');
+      await refreshGoogleEvents({ silent: true });
+    } catch (error) {
+      showToast(errorMessage(error), 'error');
+    }
+    return;
+  }
+
+  const event = item.event;
   if (event.googleEventId) {
     if (!state.session.authenticated || !integrationEnabled('google')) {
       showToast('Google Calendar no está disponible para eliminar la copia sincronizada', 'error');
@@ -229,6 +441,7 @@ async function handleDeleteEvent(event) {
     }
     try {
       await deleteGoogleEvent(event.googleEventId);
+      state.calendarEvents = state.calendarEvents.filter((calendarEvent) => calendarEvent.id !== event.googleEventId);
     } catch (error) {
       showToast(errorMessage(error), 'error');
       return;
@@ -262,7 +475,8 @@ function validateClientEvent(event) {
 function showReview(event) {
   state.pendingEvent = event;
   $('reviewEventTitle').textContent = event.title;
-  $('reviewEventDate').textContent = new Intl.DateTimeFormat('es-MX', { dateStyle: 'full' }).format(new Date(`${event.date}T00:00:00`));
+  $('reviewEventDate').textContent = new Intl.DateTimeFormat('es-MX', { dateStyle: 'full' })
+    .format(new Date(`${event.date}T00:00:00`));
   $('reviewEventTime').textContent = event.time;
   $('reviewEventCategory').textContent = CATEGORY_LABELS[event.category] || event.category;
   $('panelManual').classList.add('is-hidden');
@@ -338,6 +552,7 @@ async function beginRecording() {
     showToast('Inicia sesión con Google para analizar voz', 'error');
     return;
   }
+
   try {
     state.audioCapture = await startAudioCapture();
     $('recordButton').classList.add('is-recording');
@@ -397,12 +612,17 @@ function bindEvents() {
         authenticated: false,
         integrations: state.session.integrations,
       };
+      state.calendarEvents = [];
+      state.calendarEventsLoaded = false;
       updateAuthUI();
+      renderEvents();
       showToast('Sesión de Google cerrada', 'success');
     } catch (error) {
       showToast(errorMessage(error), 'error');
     }
   });
+
+  $('refreshEventsButton').addEventListener('click', () => refreshGoogleEvents());
 
   $('manualForm').addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -428,12 +648,14 @@ function bindEvents() {
       $('dropZone').classList.add('is-dragging');
     });
   }
+
   for (const eventName of ['dragleave', 'drop']) {
     $('dropZone').addEventListener(eventName, (event) => {
       event.preventDefault();
       $('dropZone').classList.remove('is-dragging');
     });
   }
+
   $('dropZone').addEventListener('drop', (event) => processImage(event.dataTransfer?.files?.[0]));
 
   $('aiForm').addEventListener('submit', async (event) => {
@@ -490,11 +712,18 @@ async function initialize() {
   }
   updateAuthUI();
 
+  if (state.session.authenticated && integrationEnabled('google')) {
+    await refreshGoogleEvents({ silent: true });
+  }
+
   const params = new URLSearchParams(window.location.search);
   const authResult = params.get('auth');
   if (authResult) {
     window.history.replaceState(null, '', window.location.pathname);
-    showToast(authResult === 'success' ? 'Google conectado correctamente' : 'No se pudo conectar Google', authResult === 'success' ? 'success' : 'error');
+    showToast(
+      authResult === 'success' ? 'Google conectado correctamente' : 'No se pudo conectar Google',
+      authResult === 'success' ? 'success' : 'error',
+    );
   }
 }
 
