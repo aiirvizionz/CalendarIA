@@ -6,6 +6,8 @@ const { CATEGORIES, normalizeAiEvent, ValidationError } = require('../lib/event'
 const GEMINI_INTERACTIONS_URL = 'https://generativelanguage.googleapis.com/v1/interactions';
 const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const AUDIO_MIME_TYPES = new Set(['audio/wav', 'audio/ogg', 'audio/mpeg', 'audio/mp3', 'audio/aac', 'audio/m4a', 'audio/opus']);
+const RETRYABLE_PROVIDER_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
+const MAX_PROVIDER_ATTEMPTS = 3;
 
 const EVENT_SCHEMA = Object.freeze({
   type: 'object',
@@ -113,6 +115,127 @@ function extractInteractionText(payload) {
   return '';
 }
 
+function safeProviderDetail(value) {
+  return String(value || '')
+    .replace(/AIza[A-Za-z0-9_-]{20,}/g, '[redacted-api-key]')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 300);
+}
+
+function isRetryableStatus(status) {
+  return RETRYABLE_PROVIDER_STATUSES.has(Number(status));
+}
+
+function createProviderError(status, payload = null) {
+  const httpStatus = Number(status) || 502;
+  const providerStatus = safeProviderDetail(payload?.error?.status) || 'UNKNOWN';
+  const providerMessage = safeProviderDetail(payload?.error?.message) || 'Sin detalle del proveedor';
+
+  let code = 'AI_PROVIDER_ERROR';
+  let statusCode = 502;
+  let message = 'El servicio de IA no está disponible temporalmente';
+
+  if (httpStatus === 429) {
+    code = 'AI_PROVIDER_RATE_LIMITED';
+    statusCode = 429;
+    message = 'Gemini alcanzó su límite temporal. Intenta nuevamente en unos minutos.';
+  } else if (httpStatus === 401 || httpStatus === 403) {
+    code = 'AI_PROVIDER_AUTH_ERROR';
+    statusCode = 503;
+    message = 'La credencial de Gemini fue rechazada por el proveedor';
+  } else if (httpStatus === 404) {
+    code = 'AI_MODEL_UNAVAILABLE';
+    statusCode = 503;
+    message = 'El modelo de IA configurado no está disponible';
+  } else if (httpStatus === 400) {
+    code = 'AI_PROVIDER_REQUEST_ERROR';
+    message = 'Gemini rechazó la solicitud estructurada';
+  }
+
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  error.code = code;
+  error.provider = {
+    httpStatus,
+    status: providerStatus,
+    message: providerMessage,
+    model: config.geminiModel,
+  };
+  return error;
+}
+
+function createNetworkError(error) {
+  const networkError = new Error('No se pudo contactar al servicio de IA');
+  networkError.statusCode = 502;
+  networkError.code = 'AI_PROVIDER_NETWORK_ERROR';
+  networkError.provider = {
+    httpStatus: 0,
+    status: error?.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK_ERROR',
+    message: safeProviderDetail(error?.message) || 'Fallo de red sin detalle',
+    model: config.geminiModel,
+  };
+  return networkError;
+}
+
+function retryDelayMs(attempt, response = null) {
+  const retryAfter = Number(response?.headers?.get?.('retry-after'));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return Math.min(retryAfter * 1000, 5000);
+  }
+  const base = 400 * (2 ** Math.max(0, attempt - 1));
+  return base + Math.floor(Math.random() * 250);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function requestInteraction(body) {
+  let lastNetworkError = null;
+
+  for (let attempt = 1; attempt <= MAX_PROVIDER_ATTEMPTS; attempt += 1) {
+    let response;
+    try {
+      response = await fetchWithTimeout(GEMINI_INTERACTIONS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': config.geminiApiKey,
+        },
+        body,
+      });
+    } catch (error) {
+      lastNetworkError = error;
+      if (attempt < MAX_PROVIDER_ATTEMPTS) {
+        await sleep(retryDelayMs(attempt));
+        continue;
+      }
+      throw createNetworkError(error);
+    }
+
+    const raw = await response.text();
+    let payload = null;
+    try {
+      payload = raw ? JSON.parse(raw) : null;
+    } catch {
+      payload = null;
+    }
+
+    if (response.ok) return payload;
+
+    if (isRetryableStatus(response.status) && attempt < MAX_PROVIDER_ATTEMPTS) {
+      await sleep(retryDelayMs(attempt, response));
+      continue;
+    }
+
+    throw createProviderError(response.status, payload);
+  }
+
+  throw createNetworkError(lastNetworkError);
+}
+
 async function analyzeEvent(input, timeZone) {
   const request = validateAnalyzeRequest(input);
   const content = [];
@@ -125,45 +248,22 @@ async function analyzeEvent(input, timeZone) {
     content.push({ type: 'audio', mime_type: request.audio.mimeType, data: request.audio.data });
   }
 
-  const response = await fetchWithTimeout(GEMINI_INTERACTIONS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': config.geminiApiKey,
+  const payload = await requestInteraction(JSON.stringify({
+    model: config.geminiModel,
+    input: content,
+    system_instruction: buildPrompt(timeZone),
+    response_format: {
+      type: 'text',
+      mime_type: 'application/json',
+      schema: EVENT_SCHEMA,
     },
-    body: JSON.stringify({
-      model: config.geminiModel,
-      input: content,
-      system_instruction: buildPrompt(timeZone),
-      response_format: {
-        type: 'text',
-        mime_type: 'application/json',
-        schema: EVENT_SCHEMA,
-      },
-      store: false,
-      generation_config: {
-        temperature: 0.1,
-        max_output_tokens: 512,
-        thinking_level: 'minimal',
-        thinking_summaries: 'none',
-      },
-    }),
-  });
-
-  const raw = await response.text();
-  let payload = null;
-  try {
-    payload = raw ? JSON.parse(raw) : null;
-  } catch {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    const error = new Error('El servicio de IA no está disponible temporalmente');
-    error.statusCode = response.status === 429 ? 429 : 502;
-    error.code = response.status === 429 ? 'AI_PROVIDER_RATE_LIMITED' : 'AI_PROVIDER_ERROR';
-    throw error;
-  }
+    store: false,
+    generation_config: {
+      max_output_tokens: 512,
+      thinking_level: 'minimal',
+      thinking_summaries: 'none',
+    },
+  }));
 
   const text = extractInteractionText(payload);
   if (!text) {
@@ -186,6 +286,8 @@ async function analyzeEvent(input, timeZone) {
 
 module.exports = {
   analyzeEvent,
+  createProviderError,
   extractInteractionText,
+  isRetryableStatus,
   validateAnalyzeRequest,
 };
