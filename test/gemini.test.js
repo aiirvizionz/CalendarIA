@@ -4,11 +4,20 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { ValidationError } = require('../src/lib/event');
 const {
+  EVENT_SCHEMA,
   createProviderError,
   extractInteractionText,
   isRetryableStatus,
   validateAnalyzeRequest,
 } = require('../src/services/gemini');
+
+test('usa un schema de salida compatible con el subconjunto documentado por Gemini', () => {
+  const serialized = JSON.stringify(EVENT_SCHEMA);
+  assert.equal(EVENT_SCHEMA.additionalProperties, false);
+  assert.equal(EVENT_SCHEMA.properties.fecha.format, 'date');
+  assert.doesNotMatch(serialized, /"minLength"|"maxLength"|"pattern"/);
+  assert.deepEqual(EVENT_SCHEMA.required, ['titulo', 'fecha', 'hora', 'categoria']);
+});
 
 test('acepta texto dentro del límite de análisis', () => {
   assert.deepEqual(validateAnalyzeRequest({ text: 'Examen mañana a las 8' }), {
