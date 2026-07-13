@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7fb">
+  <meta name="description" content="Política de privacidad de CalendarIA y tratamiento de datos de Google Calendar.">
+  <meta name="robots" content="index,follow">
+  <title>Política de privacidad · CalendarIA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/privacy.css">
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="policy-header">
+    <a class="brand" href="/" aria-label="CalendarIA, inicio">
+      <span class="brand-mark" aria-hidden="true">C</span>
+      <span>Calendar<span class="brand-accent">IA</span></span>
+    </a>
+    <a class="back-link" href="/">Volver a CalendarIA</a>
+  </header>
+
+  <main class="policy-shell">
+    <article class="policy-card">
+      <header class="policy-hero">
+        <p class="eyebrow">Privacidad y datos</p>
+        <h1>Política de privacidad</h1>
+        <p class="lead">Esta política explica cómo CalendarIA accede, utiliza, almacena y comparte información cuando utilizas la aplicación y conectas tu cuenta de Google.</p>
+        <p class="updated">Última actualización: 12 de julio de 2026</p>
+      </header>
+
+      <section>
+        <h2>1. Responsable y alcance</h2>
+        <p><strong>CalendarIA</strong> es un proyecto de software desarrollado por <strong>David Alejandro Lopez Huerta</strong>. La aplicación permite convertir texto, imágenes o notas de voz en propuestas de eventos y, después de la revisión y confirmación del usuario, gestionar eventos en Google Calendar.</p>
+        <p>Esta política aplica al sitio web de CalendarIA y a las funciones que utilizan Google OAuth, Google Calendar API y Gemini API.</p>
+      </section>
+
+      <section>
+        <h2>2. Información que CalendarIA procesa</h2>
+        <h3>Datos básicos de la cuenta de Google</h3>
+        <p>Cuando conectas Google, CalendarIA solicita los permisos <code>openid</code>, <code>email</code> y <code>profile</code>. Esto permite procesar:</p>
+        <ul>
+          <li>identificador de la cuenta de Google;</li>
+          <li>nombre mostrado;</li>
+          <li>dirección de correo electrónico;</li>
+          <li>URL de la fotografía de perfil, cuando Google la proporciona.</li>
+        </ul>
+        <p>Estos datos se utilizan para autenticar la sesión y mostrar la identidad de la cuenta conectada dentro de CalendarIA.</p>
+
+        <h3>Datos de Google Calendar</h3>
+        <p>CalendarIA solicita el permiso <code>https://www.googleapis.com/auth/calendar.events</code>. El backend consulta el calendario principal del usuario y procesa los metadatos necesarios para las funciones visibles de agenda, entre ellos:</p>
+        <ul>
+          <li>identificador del evento;</li>
+          <li>título o resumen;</li>
+          <li>fecha y hora de inicio y fin;</li>
+          <li>zona horaria;</li>
+          <li>recordatorios;</li>
+          <li>información de recurrencia;</li>
+          <li>tipo de evento;</li>
+          <li>indicadores del creador u organizador;</li>
+          <li>enlace del evento en Google Calendar.</li>
+        </ul>
+        <p>La aplicación utiliza estos datos para mostrar eventos futuros creados por el propio usuario, agrupar series recurrentes, detectar eventos duplicados y ejecutar acciones de creación o eliminación solicitadas por el usuario.</p>
+
+        <h3>Contenido enviado por el usuario a Gemini</h3>
+        <p>Cuando utilizas las funciones de inteligencia artificial, CalendarIA puede procesar el contenido que entregas voluntariamente:</p>
+        <ul>
+          <li>texto escrito en el campo de análisis;</li>
+          <li>imágenes JPG, PNG o WebP seleccionadas por el usuario;</li>
+          <li>audio grabado por el usuario y convertido a WAV PCM.</li>
+        </ul>
+        <p>Este contenido se envía a Gemini únicamente para extraer una propuesta estructurada de evento. CalendarIA configura las interacciones de Gemini con <code>store: false</code>.</p>
+        <p><strong>Los eventos obtenidos desde Google Calendar no se envían a Gemini.</strong> El contenido de Google Calendar y el contenido que el usuario entrega directamente a Gemini son flujos separados.</p>
+
+        <h3>Datos técnicos</h3>
+        <p>CalendarIA puede procesar temporalmente la dirección IP o identificadores técnicos equivalentes para límites de uso y prevención de abuso. El servidor genera identificadores aleatorios de solicitud y puede registrar información técnica como códigos de error, estado HTTP, modelo utilizado y etapa del fallo.</p>
+        <p>Los logs de la aplicación no están diseñados para registrar el texto analizado, imágenes, audio, tokens OAuth ni claves de API.</p>
+      </section>
+
+      <section>
+        <h2>3. Cómo utiliza CalendarIA la información de Google</h2>
+        <p>CalendarIA utiliza la información recibida mediante las APIs de Google únicamente para proporcionar las funciones visibles de la aplicación:</p>
+        <ul>
+          <li>iniciar y mantener una sesión vinculada a la cuenta autorizada;</li>
+          <li>mostrar el nombre y la fotografía de la cuenta conectada;</li>
+          <li>mostrar la agenda futura del usuario dentro de CalendarIA;</li>
+          <li>identificar y agrupar eventos recurrentes;</li>
+          <li>evitar la creación de eventos duplicados;</li>
+          <li>crear eventos en Google Calendar después de una acción o confirmación del usuario;</li>
+          <li>eliminar eventos cuando el usuario lo solicita expresamente.</li>
+        </ul>
+        <p>El uso y la transferencia de información recibida de las APIs de Google se ajustan a la <strong>Google API Services User Data Policy</strong>, incluidos sus requisitos de uso limitado.</p>
+        <p>CalendarIA no utiliza datos de Google para publicidad, retargeting, perfiles comerciales, evaluación crediticia, vigilancia ni venta de información.</p>
+      </section>
+
+      <section>
+        <h2>4. Almacenamiento y retención</h2>
+        <h3>Google Calendar como fuente de verdad</h3>
+        <p>CalendarIA no mantiene una base de datos propia de eventos ni persiste eventos en <code>localStorage</code>. Los eventos confirmados se almacenan en la cuenta de Google Calendar del usuario y permanecen allí conforme a la configuración y políticas de Google hasta que el usuario los elimine.</p>
+
+        <h3>Sesiones y tokens OAuth</h3>
+        <p>Los access tokens y refresh tokens de Google se mantienen en la memoria del proceso del servidor y no se entregan al JavaScript del navegador. La cookie del navegador contiene únicamente un identificador aleatorio de sesión firmado y utiliza atributos de seguridad como <code>HttpOnly</code> y <code>SameSite=Lax</code>; en producción también utiliza <code>Secure</code>.</p>
+        <p>Las sesiones pueden mantenerse hasta 30 días mediante expiración deslizante. Cerrar sesión, expirar la sesión o reiniciar la instancia del servidor elimina la sesión almacenada en memoria. Durante el cierre de sesión CalendarIA también intenta revocar el token utilizado con Google.</p>
+
+        <h3>Texto, imágenes y audio para IA</h3>
+        <p>CalendarIA no mantiene una biblioteca propia del texto, imágenes o audio enviados a Gemini. Estos contenidos se procesan para obtener una propuesta de evento y no se persisten como registros de usuario en una base de datos de CalendarIA.</p>
+
+        <h3>Logs técnicos</h3>
+        <p>Los logs técnicos pueden ser conservados por la infraestructura de alojamiento durante el periodo configurado por el proveedor del servicio. CalendarIA limita sus propios mensajes de log a información operativa y de seguridad necesaria para diagnosticar errores y abuso.</p>
+      </section>
+
+      <section>
+        <h2>5. Proveedores y posibles transferencias</h2>
+        <p>CalendarIA utiliza servicios de terceros necesarios para operar sus funciones:</p>
+        <ul>
+          <li><strong>Google OAuth y OpenID Connect:</strong> autenticación y autorización de la cuenta.</li>
+          <li><strong>Google Calendar API:</strong> lectura de metadatos necesarios, detección de duplicados y gestión de eventos solicitada por el usuario.</li>
+          <li><strong>Google Gemini API:</strong> análisis del texto, imagen o audio que el usuario envía directamente para extraer una propuesta de evento.</li>
+          <li><strong>Render:</strong> infraestructura de alojamiento del servidor de CalendarIA.</li>
+          <li><strong>Google Fonts:</strong> entrega de recursos tipográficos de la interfaz.</li>
+        </ul>
+        <p>CalendarIA no vende datos personales ni datos obtenidos de las APIs de Google. Tampoco comparte esos datos con plataformas publicitarias, corredores de datos o revendedores de información.</p>
+      </section>
+
+      <section>
+        <h2>6. Seguridad</h2>
+        <p>CalendarIA aplica medidas técnicas orientadas a reducir el riesgo de acceso no autorizado, entre ellas:</p>
+        <ul>
+          <li>HTTPS en producción;</li>
+          <li>OAuth 2.0 Authorization Code con PKCE y validación de <code>state</code>;</li>
+          <li>tokens OAuth mantenidos en el servidor;</li>
+          <li>identificadores de sesión aleatorios firmados mediante HMAC;</li>
+          <li>cookies <code>HttpOnly</code> y <code>Secure</code> en producción;</li>
+          <li>protección CSRF;</li>
+          <li>Content Security Policy y cabeceras HTTP de seguridad;</li>
+          <li>límites de solicitudes por IP y por sesión;</li>
+          <li>validación de entradas, tipos MIME, tamaños y salidas generadas por IA;</li>
+          <li>timeouts para servicios externos y sanitización de errores.</li>
+        </ul>
+        <p>Ningún sistema puede garantizar seguridad absoluta, pero CalendarIA busca aplicar medidas razonables y proporcionales a la naturaleza del proyecto y a los datos tratados.</p>
+      </section>
+
+      <section>
+        <h2>7. Control del usuario y eliminación</h2>
+        <p>El usuario conserva el control sobre su cuenta y sus eventos. Puede:</p>
+        <ul>
+          <li>cerrar sesión desde CalendarIA para eliminar la sesión activa del servidor;</li>
+          <li>revocar el acceso de CalendarIA desde la sección de conexiones o aplicaciones de terceros de su Cuenta de Google;</li>
+          <li>eliminar eventos desde CalendarIA cuando la interfaz lo permita o directamente desde Google Calendar;</li>
+          <li>dejar de utilizar la aplicación en cualquier momento.</li>
+        </ul>
+        <p>Como CalendarIA no mantiene una base de datos propia de perfiles o eventos de usuario, no existe una copia persistente de dichos eventos que deba eliminarse de un almacenamiento independiente de CalendarIA. Los eventos creados permanecen en Google Calendar hasta que el usuario los elimine.</p>
+      </section>
+
+      <section>
+        <h2>8. Menores de edad</h2>
+        <p>CalendarIA no está diseñado ni dirigido específicamente a menores de 13 años. El proyecto no busca recopilar conscientemente información de menores mediante las APIs de Google.</p>
+      </section>
+
+      <section>
+        <h2>9. Cambios en esta política</h2>
+        <p>Esta política puede actualizarse cuando cambien las funciones, los permisos solicitados o la forma en que CalendarIA trata información. Si un cambio implica un nuevo uso de datos de Google distinto al descrito aquí, la política deberá actualizarse antes de utilizar esos datos para el nuevo propósito y se aplicarán los mecanismos de aviso o consentimiento que correspondan.</p>
+        <p>La fecha de la última actualización se muestra al inicio de esta página.</p>
+      </section>
+
+      <section>
+        <h2>10. Contacto</h2>
+        <p>Para consultas de privacidad, seguridad o tratamiento de datos relacionadas con CalendarIA, puedes contactar al desarrollador mediante el repositorio público del proyecto y su sistema de Issues:</p>
+        <p><a class="contact-link" href="https://github.com/aiirvizionz/CalendarIA/issues" target="_blank" rel="noopener noreferrer">GitHub · CalendarIA Issues</a></p>
+        <p>Desarrollador: <strong>David Alejandro Lopez Huerta</strong>.</p>
+      </section>
+
+      <aside class="limited-use-note" aria-label="Compromiso de uso limitado de datos de Google">
+        <strong>Compromiso sobre datos de Google</strong>
+        <p>CalendarIA limita el acceso y uso de datos de Google a las funciones de agenda que el usuario ve y solicita dentro de la aplicación. No utiliza esos datos para publicidad ni los vende a terceros.</p>
+      </aside>
+    </article>
+  </main>
+
+  <footer class="policy-footer">
+    <span>CalendarIA</span>
+    <a href="/">Aplicación</a>
+    <a href="/privacy.html" aria-current="page">Política de privacidad</a>
+  </footer>
+</body>
+</html>
