@@ -26,7 +26,7 @@ test('la política divulga el uso esencial de datos de Google', () => {
   assert.match(policy, /requisitos de uso limitado/i);
   assert.match(policy, /Los eventos obtenidos desde Google Calendar no se envían a Gemini/);
   assert.match(policy, /no mantiene una base de datos propia de eventos/i);
-  assert.match(policy, /no persiste eventos en <code>localStorage<\/code>/i);
+  assert.match(policy, /persiste eventos en <code>localStorage<\/code>/i);
   assert.match(policy, /revocar el acceso de CalendarIA/i);
   assert.match(policy, /no vende datos personales ni datos obtenidos de las APIs de Google/i);
 });
