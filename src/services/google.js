@@ -36,7 +36,6 @@ function createAuthorizationRequest() {
   const state = crypto.randomBytes(32).toString('base64url');
   const { verifier, challenge } = createPkcePair();
   const redirectUri = `${config.appBaseUrl}/api/auth/google/callback`;
-
   const params = new URLSearchParams({
     client_id: config.googleClientId,
     redirect_uri: redirectUri,
@@ -61,7 +60,6 @@ function createAuthorizationRequest() {
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } finally {
@@ -85,7 +83,6 @@ async function readGoogleResponse(response, fallbackMessage) {
     error.code = response.status === 401 ? 'GOOGLE_AUTH_EXPIRED' : 'GOOGLE_API_ERROR';
     throw error;
   }
-
   return payload;
 }
 
@@ -103,7 +100,6 @@ async function exchangeAuthorizationCode(code, verifier) {
       code_verifier: verifier,
     }),
   });
-
   return readGoogleResponse(response, 'No se pudo completar la autorización con Google');
 }
 
@@ -125,7 +121,6 @@ async function refreshAccessToken(refreshToken) {
       grant_type: 'refresh_token',
     }),
   });
-
   return readGoogleResponse(response, 'No se pudo renovar la sesión de Google');
 }
 
@@ -147,7 +142,6 @@ async function ensureAccessToken(session) {
     accessToken: tokens.access_token,
     accessTokenExpiresAt: Date.now() + Number(tokens.expires_in || 3600) * 1000,
   };
-
   return { accessToken: updatedSession.accessToken, session: updatedSession, refreshed: true };
 }
 
@@ -183,7 +177,6 @@ function parseRecurrenceRule(lines) {
     YEARLY: 'yearly',
   };
   const interval = Number.parseInt(fields.INTERVAL || '1', 10);
-
   return {
     frequency: frequencyMap[fields.FREQ] || 'custom',
     interval: Number.isInteger(interval) && interval > 0 ? interval : 1,
@@ -278,7 +271,6 @@ function selectUpcomingOwnedEvents(expandedEvents, recurrenceById = new Map(), n
     seenContent.add(contentKey);
     events.push(normalizeCalendarEvent(event, seriesId ? recurrenceById.get(seriesId) || null : null));
   }
-
   return events;
 }
 
@@ -289,7 +281,6 @@ async function listCalendarPages(accessToken, query, maxEvents = MAX_CALENDAR_EV
   do {
     const params = new URLSearchParams(query);
     if (pageToken) params.set('pageToken', pageToken);
-
     const response = await fetchWithTimeout(`${GOOGLE_CALENDAR_URL}?${params.toString()}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -299,7 +290,6 @@ async function listCalendarPages(accessToken, query, maxEvents = MAX_CALENDAR_EV
       events.push(event);
       if (events.length >= maxEvents) break;
     }
-
     pageToken = events.length < maxEvents ? String(payload?.nextPageToken || '') : '';
   } while (pageToken);
 
@@ -394,7 +384,7 @@ async function findDuplicateCalendarEvent(accessToken, event, timeZone) {
 
 async function createCalendarEvent(accessToken, event, timeZone) {
   const duplicate = await findDuplicateCalendarEvent(accessToken, event, timeZone);
-  if (duplicate) return { event: duplicate, duplicate: true };
+  if (duplicate) return { ...duplicate, duplicate: true };
 
   const response = await fetchWithTimeout(GOOGLE_CALENDAR_URL, {
     method: 'POST',
@@ -404,11 +394,8 @@ async function createCalendarEvent(accessToken, event, timeZone) {
     },
     body: JSON.stringify(buildCalendarEvent(event, timeZone)),
   });
-
-  return {
-    event: await readGoogleResponse(response, 'No se pudo crear el evento en Google Calendar'),
-    duplicate: false,
-  };
+  const created = await readGoogleResponse(response, 'No se pudo crear el evento en Google Calendar');
+  return { ...created, duplicate: false };
 }
 
 async function updateCalendarEvent(accessToken, googleEventId, event, timeZone) {
@@ -421,7 +408,6 @@ async function updateCalendarEvent(accessToken, googleEventId, event, timeZone) 
     },
     body: JSON.stringify(buildCalendarEvent(event, timeZone)),
   });
-
   return readGoogleResponse(response, 'No se pudo actualizar el evento en Google Calendar');
 }
 
@@ -431,7 +417,6 @@ async function deleteCalendarEvent(accessToken, googleEventId) {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-
   if (response.status === 204 || response.status === 410) return;
   await readGoogleResponse(response, 'No se pudo eliminar el evento de Google Calendar');
 }
