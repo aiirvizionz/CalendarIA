@@ -252,7 +252,7 @@ app.post(
   aiUserLimiter,
   async (req, res, next) => {
     try {
-      const event = await analyzeEvent(req.body, getTimeZone(req));
+      const event = await analyzeEvent(req.body, getTimeZone(req), req.requestId);
       return res.json({ event });
     } catch (error) {
       return next(error);
@@ -287,10 +287,11 @@ app.post(
       const event = validateEvent(req.body);
       const timeZone = getTimeZone(req);
       const accessToken = await googleContext(req, res);
-      const created = await createCalendarEvent(accessToken, event, timeZone);
-      return res.status(201).json({
-        googleEventId: created.id,
-        htmlLink: created.htmlLink || '',
+      const result = await createCalendarEvent(accessToken, event, timeZone);
+      return res.status(result.duplicate ? 200 : 201).json({
+        googleEventId: result.event.id,
+        htmlLink: result.event.htmlLink || '',
+        duplicate: Boolean(result.duplicate),
       });
     } catch (error) {
       return next(error);
