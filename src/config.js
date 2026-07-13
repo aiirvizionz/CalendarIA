@@ -29,7 +29,7 @@ if (Buffer.byteLength(sessionSecret, 'utf8') < 32) {
   throw new Error('SESSION_SECRET debe tener al menos 32 bytes');
 }
 
-const geminiApiKey = readEnv('GEMINI_API_KEY', 'API_KEY_GEMINI');
+const geminiApiKey = readEnv('GEMINI_API_KEY', 'GOOGLE_API_KEY', 'API_KEY_GEMINI');
 const googleClientId = readEnv('GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_AUTH_API_KEY');
 const googleClientSecret = readEnv('GOOGLE_OAUTH_CLIENT_SECRET');
 

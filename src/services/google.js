@@ -11,6 +11,8 @@ const GOOGLE_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
 const GOOGLE_CALENDAR_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const OAUTH_SCOPES = ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/calendar.events'];
 const DEFAULT_TIMEOUT_MS = 15000;
+const CALENDAR_PAGE_SIZE = 2500;
+const MAX_CALENDAR_EVENTS = 5000;
 
 function normalizeModelSafeText(value) {
   return String(value || '').replace(/[\u0000-\u001F\u007F]/g, ' ').trim();
@@ -155,6 +157,60 @@ function buildCalendarEvent(event, timeZone) {
   };
 }
 
+function normalizeCalendarEvent(event) {
+  const start = event?.start || {};
+  const reminders = Array.isArray(event?.reminders?.overrides)
+    ? event.reminders.overrides
+      .map((reminder) => Number(reminder?.minutes))
+      .filter((minutes) => Number.isInteger(minutes) && minutes >= 0)
+    : [];
+
+  return {
+    id: String(event?.id || ''),
+    title: normalizeModelSafeText(event?.summary) || 'Sin título',
+    startDateTime: typeof start.dateTime === 'string' ? start.dateTime : '',
+    startDate: typeof start.date === 'string' ? start.date : '',
+    timeZone: typeof start.timeZone === 'string' ? start.timeZone : '',
+    htmlLink: typeof event?.htmlLink === 'string' ? event.htmlLink : '',
+    eventType: typeof event?.eventType === 'string' ? event.eventType : 'default',
+    reminders,
+    useDefaultReminders: Boolean(event?.reminders?.useDefault),
+    creatorSelf: Boolean(event?.creator?.self),
+    organizerSelf: Boolean(event?.organizer?.self),
+  };
+}
+
+async function listCalendarEvents(accessToken, timeZone) {
+  const events = [];
+  let pageToken = '';
+
+  do {
+    const params = new URLSearchParams({
+      singleEvents: 'true',
+      orderBy: 'startTime',
+      showDeleted: 'false',
+      timeZone,
+      maxResults: String(CALENDAR_PAGE_SIZE),
+    });
+    if (pageToken) params.set('pageToken', pageToken);
+
+    const response = await fetchWithTimeout(`${GOOGLE_CALENDAR_URL}?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const payload = await readGoogleResponse(response, 'No se pudieron obtener los eventos de Google Calendar');
+
+    for (const event of Array.isArray(payload?.items) ? payload.items : []) {
+      if (event?.status === 'cancelled' || !event?.id) continue;
+      events.push(normalizeCalendarEvent(event));
+      if (events.length >= MAX_CALENDAR_EVENTS) break;
+    }
+
+    pageToken = events.length < MAX_CALENDAR_EVENTS ? String(payload?.nextPageToken || '') : '';
+  } while (pageToken);
+
+  return events;
+}
+
 async function createCalendarEvent(accessToken, event, timeZone) {
   const response = await fetchWithTimeout(GOOGLE_CALENDAR_URL, {
     method: 'POST',
@@ -202,7 +258,7 @@ async function revokeToken(token) {
       body: new URLSearchParams({ token }),
     }, 5000);
   } catch {
-    // Logout must still clear the local encrypted session if Google is unavailable.
+    // Logout must still clear the server session if Google is unavailable.
   }
 }
 
@@ -213,6 +269,8 @@ module.exports = {
   ensureAccessToken,
   exchangeAuthorizationCode,
   getUserInfo,
+  listCalendarEvents,
+  normalizeCalendarEvent,
   revokeToken,
   updateCalendarEvent,
 };
