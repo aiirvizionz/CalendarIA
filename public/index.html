@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/footer.css">
 </head>
 <body>
   <div class="ambient ambient-one" aria-hidden="true"></div>
@@ -188,11 +189,24 @@
   </main>
 
   <footer class="site-footer">
-    <p><strong>CalendarIA</strong> convierte texto, imágenes y voz en eventos revisables para Google Calendar.</p>
-    <nav aria-label="Información de CalendarIA">
-      <a href="/privacy.html">Política de privacidad</a>
-      <a href="https://github.com/aiirvizionz/CalendarIA" target="_blank" rel="noopener noreferrer">GitHub</a>
-    </nav>
+    <div class="footer-panel">
+      <div class="footer-identity">
+        <span class="footer-brand-mark" aria-hidden="true">C</span>
+        <div class="footer-copy">
+          <p class="footer-name">Calendar<span class="brand-accent">IA</span></p>
+          <p class="footer-description">CalendarIA convierte texto, imágenes y voz en eventos revisables para Google Calendar.</p>
+        </div>
+      </div>
+
+      <nav class="footer-nav" aria-label="Información de CalendarIA">
+        <a class="footer-link" href="/privacy.html">Política de privacidad</a>
+        <a class="footer-link" href="https://github.com/aiirvizionz/CalendarIA" target="_blank" rel="noopener noreferrer">Ver en GitHub ↗</a>
+      </nav>
+    </div>
+    <div class="footer-meta">
+      <span>© 2026 CalendarIA · David Alejandro Lopez Huerta</span>
+      <span>Agenda inteligente con Gemini y Google Calendar</span>
+    </div>
   </footer>
 
   <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
