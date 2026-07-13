@@ -19,21 +19,20 @@ const CATEGORY_LABELS = Object.freeze({
   otro: 'Otro',
 });
 
-const GOOGLE_EVENT_TYPE_LABELS = Object.freeze({
-  default: 'Calendario',
-  birthday: 'Cumpleaños',
-  focusTime: 'Concentración',
-  outOfOffice: 'Fuera de oficina',
-  workingLocation: 'Ubicación de trabajo',
-  fromGmail: 'Gmail',
-});
-
 const REMINDER_LABELS = Object.freeze({
   10: '10 min',
   60: '1 hora',
   360: '6 horas',
   1440: '1 día',
   10080: '1 semana',
+});
+
+const RECURRENCE_LABELS = Object.freeze({
+  daily: { single: 'diaria', plural: 'días' },
+  weekly: { single: 'semanal', plural: 'semanas' },
+  monthly: { single: 'mensual', plural: 'meses' },
+  yearly: { single: 'anual', plural: 'años' },
+  custom: { single: 'personalizada', plural: 'periodos' },
 });
 
 const state = {
@@ -50,6 +49,14 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+function normalizeComparableText(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .toLocaleLowerCase('es-MX')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function localDateValue(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     year: 'numeric',
@@ -65,7 +72,7 @@ function showToast(message, type = 'info') {
   toast.className = `toast ${type === 'error' ? 'is-error' : type === 'success' ? 'is-success' : ''}`;
   toast.textContent = message;
   $('toastRegion').appendChild(toast);
-  window.setTimeout(() => toast.remove(), 4200);
+  window.setTimeout(() => toast.remove(), 5200);
 }
 
 function errorMessage(error) {
@@ -96,6 +103,7 @@ function formatLocalEventDate(event) {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
+    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   }).format(parsed);
@@ -132,25 +140,39 @@ function formatGoogleEventDate(event) {
   return 'Fecha no disponible';
 }
 
-function eventTimestamp(item) {
-  if (item.source === 'google') {
-    const value = item.event.startDateTime || (item.event.startDate ? `${item.event.startDate}T00:00:00` : '');
-    const parsed = value ? new Date(value).getTime() : Number.NaN;
-    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
-  }
+function googleEventTimestamp(event) {
+  const value = event.startDateTime || (event.startDate ? `${event.startDate}T00:00:00` : '');
+  const timestamp = value ? new Date(value).getTime() : Number.NaN;
+  return Number.isFinite(timestamp) ? timestamp : Number.MAX_SAFE_INTEGER;
+}
 
-  const parsed = new Date(`${item.event.date}T${item.event.time}:00`).getTime();
-  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+function localEventTimestamp(event) {
+  const timestamp = new Date(`${event.date}T${event.time}:00`).getTime();
+  return Number.isFinite(timestamp) ? timestamp : Number.MAX_SAFE_INTEGER;
+}
+
+function localEventStillActive(event) {
+  const start = localEventTimestamp(event);
+  return Number.isFinite(start) && start + (60 * 60 * 1000) > Date.now();
+}
+
+function localEventContentKey(event) {
+  return `${normalizeComparableText(event.title)}|${event.date}|${event.time}`;
+}
+
+function recurrenceLabel(recurrence) {
+  if (!recurrence) return '';
+  const definition = RECURRENCE_LABELS[recurrence.frequency] || RECURRENCE_LABELS.custom;
+  const interval = Number(recurrence.interval) || 1;
+  return interval === 1
+    ? `Recurrente · ${definition.single}`
+    : `Recurrente · cada ${interval} ${definition.plural}`;
 }
 
 function compareAgendaItems(a, b) {
-  const now = Date.now();
-  const aTime = eventTimestamp(a);
-  const bTime = eventTimestamp(b);
-  const aPast = aTime < now;
-  const bPast = bTime < now;
-  if (aPast !== bPast) return aPast ? 1 : -1;
-  return aPast ? bTime - aTime : aTime - bTime;
+  const aTime = a.source === 'google' ? googleEventTimestamp(a.event) : localEventTimestamp(a.event);
+  const bTime = b.source === 'google' ? googleEventTimestamp(b.event) : localEventTimestamp(b.event);
+  return aTime - bTime;
 }
 
 function integrationEnabled(name) {
@@ -273,13 +295,19 @@ function agendaItems() {
     key: `google:${event.id}`,
     event,
   }));
-  const remoteIds = new Set(state.calendarEvents.map((event) => event.id));
+  const remoteIds = new Set(
+    state.calendarEvents.flatMap((event) => [event.id, event.deleteId].filter(Boolean)),
+  );
+  const seenLocalContent = new Set();
 
   const localItems = listEvents()
+    .filter((event) => localEventStillActive(event))
     .filter((event) => {
-      if (!state.calendarEventsLoaded) return true;
-      if (!event.googleEventId) return true;
-      return !remoteIds.has(event.googleEventId) && event.syncStatus !== 'synced';
+      if (state.calendarEventsLoaded && event.googleEventId && remoteIds.has(event.googleEventId)) return false;
+      const key = localEventContentKey(event);
+      if (seenLocalContent.has(key)) return false;
+      seenLocalContent.add(key);
+      return true;
     })
     .map((event) => ({
       source: 'local',
@@ -319,7 +347,7 @@ function renderEvents() {
     if (item.source === 'google') {
       fragment.querySelector('.event-date').textContent = formatGoogleEventDate(event);
       sourceBadge.textContent = 'Google';
-      category.textContent = GOOGLE_EVENT_TYPE_LABELS[event.eventType] || 'Calendario';
+      category.textContent = event.recurring ? recurrenceLabel(event.recurrence) : 'Calendario';
       reminders.textContent = googleReminderText(event);
       if (event.htmlLink) {
         openLink.href = event.htmlLink;
@@ -398,7 +426,12 @@ async function saveEvent(event) {
       syncStatus: 'synced',
     });
     await refreshGoogleEvents({ silent: true });
-    showToast('Evento guardado en Google Calendar', 'success');
+    showToast(
+      result.duplicate
+        ? 'Ese evento ya existía en Google Calendar; no se creó una copia.'
+        : 'Evento guardado en Google Calendar',
+      'success',
+    );
     return synced;
   } catch (error) {
     updateEvent(stored.id, { syncStatus: 'failed' });
@@ -408,24 +441,27 @@ async function saveEvent(event) {
   }
 }
 
-function removeLocalCopies(googleEventId) {
-  if (!googleEventId) return;
+function removeLocalCopies(...googleEventIds) {
+  const ids = new Set(googleEventIds.filter(Boolean));
+  if (!ids.size) return;
   for (const localEvent of listEvents()) {
-    if (localEvent.googleEventId === googleEventId) removeEvent(localEvent.id);
+    if (ids.has(localEvent.googleEventId)) removeEvent(localEvent.id);
   }
 }
 
 async function handleDeleteEvent(item) {
   if (item.source === 'google') {
-    const confirmed = window.confirm(`¿Eliminar “${item.event.title}” de Google Calendar?`);
+    const targetId = item.event.deleteId || item.event.id;
+    const subject = item.event.recurring ? 'la serie recurrente' : 'el evento';
+    const confirmed = window.confirm(`¿Eliminar ${subject} “${item.event.title}” de Google Calendar?`);
     if (!confirmed) return;
 
     try {
-      await deleteGoogleEvent(item.event.id);
-      removeLocalCopies(item.event.id);
-      state.calendarEvents = state.calendarEvents.filter((event) => event.id !== item.event.id);
+      await deleteGoogleEvent(targetId);
+      removeLocalCopies(item.event.id, targetId);
+      state.calendarEvents = state.calendarEvents.filter((event) => (event.deleteId || event.id) !== targetId);
       renderEvents();
-      showToast('Evento eliminado de Google Calendar', 'success');
+      showToast(item.event.recurring ? 'Serie recurrente eliminada de Google Calendar' : 'Evento eliminado de Google Calendar', 'success');
       await refreshGoogleEvents({ silent: true });
     } catch (error) {
       showToast(errorMessage(error), 'error');
@@ -498,6 +534,7 @@ function clearImage() {
 }
 
 async function processImage(file) {
+  if (!file) return;
   try {
     clearImage();
     state.image = await readImage(file);
