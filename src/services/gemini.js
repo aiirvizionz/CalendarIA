@@ -287,8 +287,8 @@ function inputKinds(request) {
   return [request.text && 'text', request.image && 'image', request.audio && 'audio'].filter(Boolean);
 }
 
-async function analyzeEvent(input, timeZone) {
-  const analysisId = crypto.randomUUID();
+async function analyzeEvent(input, timeZone, requestId = '') {
+  const analysisId = requestId || crypto.randomUUID();
   let request;
 
   try {
