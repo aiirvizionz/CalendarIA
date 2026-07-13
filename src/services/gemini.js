@@ -287,17 +287,7 @@ function inputKinds(request) {
   return [request.text && 'text', request.image && 'image', request.audio && 'audio'].filter(Boolean);
 }
 
-async function analyzeEvent(input, timeZone, requestId = '') {
-  const analysisId = requestId || crypto.randomUUID();
-  let request;
-
-  try {
-    request = validateAnalyzeRequest(input);
-  } catch (error) {
-    logAiFailure(error, 'validate_input', analysisId);
-    throw error;
-  }
-
+function buildInteractionRequest(request, timeZone) {
   const content = [];
   if (request.text) content.push({ type: 'text', text: request.text });
   if (request.image) {
@@ -307,14 +297,12 @@ async function analyzeEvent(input, timeZone, requestId = '') {
     content.push({ type: 'audio', mime_type: request.audio.mimeType, data: request.audio.data });
   }
 
-  logAiEvent('ai_analysis_started', analysisId, {
-    inputKinds: inputKinds(request),
-    timeZone,
-  });
-
-  const payload = await requestInteraction(JSON.stringify({
+  return {
     model: config.geminiModel,
-    input: content,
+    input: [{
+      type: 'user_input',
+      content,
+    }],
     system_instruction: buildPrompt(timeZone),
     response_format: {
       type: 'text',
@@ -327,7 +315,27 @@ async function analyzeEvent(input, timeZone, requestId = '') {
       thinking_level: 'minimal',
       thinking_summaries: 'none',
     },
-  }), analysisId);
+  };
+}
+
+async function analyzeEvent(input, timeZone, requestId = '') {
+  const analysisId = requestId || crypto.randomUUID();
+  let request;
+
+  try {
+    request = validateAnalyzeRequest(input);
+  } catch (error) {
+    logAiFailure(error, 'validate_input', analysisId);
+    throw error;
+  }
+
+  logAiEvent('ai_analysis_started', analysisId, {
+    inputKinds: inputKinds(request),
+    timeZone,
+  });
+
+  const interactionRequest = buildInteractionRequest(request, timeZone);
+  const payload = await requestInteraction(JSON.stringify(interactionRequest), analysisId);
 
   const text = extractInteractionText(payload);
   if (!text) {
@@ -370,6 +378,7 @@ async function analyzeEvent(input, timeZone, requestId = '') {
 module.exports = {
   EVENT_SCHEMA,
   analyzeEvent,
+  buildInteractionRequest,
   createProviderError,
   extractInteractionText,
   isRetryableStatus,
