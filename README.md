@@ -2,7 +2,7 @@
 
 # CalendarIA
 
-### Convierte lenguaje natural, imágenes y voz en eventos listos para tu calendario.
+### Convierte lenguaje natural, imágenes y voz en eventos listos para Google Calendar.
 
 [![CI](https://github.com/aiirvizionz/CalendarIA/actions/workflows/ci.yml/badge.svg)](https://github.com/aiirvizionz/CalendarIA/actions/workflows/ci.yml)
 ![Node.js](https://img.shields.io/badge/Node.js-24-339933?logo=nodedotjs&logoColor=white)
@@ -18,9 +18,9 @@
 
 ## El proyecto
 
-**CalendarIA** es una agenda inteligente diseñada para reducir la fricción de crear eventos.
+**CalendarIA** es una agenda inteligente que reduce la fricción de crear eventos y los integra directamente con Google Calendar.
 
-En lugar de llenar formularios campo por campo, el usuario puede escribir una frase, adjuntar una captura o describir un compromiso por voz. Gemini interpreta la entrada, extrae la información relevante y presenta un evento estructurado para revisión antes de enviarlo a Google Calendar.
+En lugar de capturar manualmente cada campo, el usuario puede escribir una frase, adjuntar una captura o describir un compromiso por voz. Gemini interpreta la entrada y propone un evento estructurado para revisión.
 
 > “Tengo examen de Redes el próximo martes a las 8 de la mañana.”
 
@@ -30,15 +30,15 @@ Martes · 08:00
 Categoría: Examen
 ```
 
-La IA propone. **El usuario confirma.**
+La IA propone. **El usuario confirma. Google Calendar conserva el evento.**
 
 ---
 
 ## ¿Qué problema resuelve?
 
-Crear un evento suele implicar detener lo que estás haciendo, abrir una aplicación y capturar manualmente título, fecha, hora, categoría y recordatorios.
+Crear un evento suele implicar interrumpir una actividad, abrir una aplicación y capturar título, fecha, hora y recordatorios.
 
-CalendarIA convierte información que ya existe en lenguaje cotidiano en una acción estructurada:
+CalendarIA transforma información cotidiana en una acción estructurada:
 
 ```text
 Texto ──────┐
@@ -46,7 +46,7 @@ Imagen ─────┼──► Gemini ──► Evento estructurado ──�
 Voz ────────┘
 ```
 
-El objetivo del proyecto es explorar una experiencia de agenda **multimodal, segura y centrada en revisión humana**.
+El proyecto explora una experiencia de agenda **multimodal, segura y centrada en revisión humana**.
 
 ---
 
@@ -64,42 +64,43 @@ La fecha local y la zona horaria del usuario forman parte del contexto de extrac
 
 ### Imagen
 
-Una captura de horario, tarea o notificación puede convertirse en un evento. El frontend acepta imágenes JPG, PNG y WebP dentro de límites controlados y el backend vuelve a validar el contenido antes de enviarlo a Gemini.
+Una captura de horario, tarea o notificación puede convertirse en un evento. El frontend admite JPG, PNG y WebP dentro de límites controlados y el backend vuelve a validar el contenido antes de enviarlo a Gemini.
 
 ### Voz
 
-La aplicación captura audio mono mediante `AudioWorklet`, genera WAV PCM de 16 bits y envía la grabación para extracción estructurada.
+La aplicación captura audio mono mediante `AudioWorklet`, genera WAV PCM de 16 bits y utiliza Gemini para extraer el evento.
 
-La grabación se limita a 60 segundos y el evento resultante sigue pasando por la misma revisión humana que texto e imagen.
+La grabación se limita a 60 segundos y pasa por la misma revisión humana que texto e imagen.
 
 ---
 
-## Flujo de producto
+## Google Calendar como fuente de verdad
 
-```mermaid
-flowchart LR
-    A[Entrada del usuario] --> B{Modalidad}
-    B -->|Texto| C[Texto natural]
-    B -->|Imagen| D[Captura o fotografía]
-    B -->|Voz| E[WAV PCM]
+CalendarIA no mantiene una agenda paralela en el navegador.
 
-    C --> F[API de CalendarIA]
-    D --> F
-    E --> F
-
-    F --> G[Gemini Interactions API]
-    G --> H[JSON Schema]
-    H --> I[Validación de dominio]
-    I --> J[Revisión humana]
-    J -->|Confirmar| K[Google Calendar]
-    J -->|Descartar| L[Sin cambios]
+```text
+Confirmar evento
+      │
+      ▼
+CalendarIA API
+      │
+      ▼
+Google Calendar API
+      │
+      ├── Creado o ya existente ──► Actualizar “Tus eventos”
+      │
+      └── Error ──────────────────► No crear copia local
 ```
+
+Los eventos visibles se consultan desde el calendario principal de Google. CalendarIA muestra únicamente eventos regulares creados por la cuenta autenticada que todavía no han terminado.
+
+Las series recurrentes se agrupan en una sola tarjeta y conservan la próxima ocurrencia futura junto con su frecuencia.
+
+Antes de crear un evento, el backend busca una coincidencia por **título normalizado + fecha local + hora local** para evitar duplicados reales en Google Calendar.
 
 ---
 
 ## Arquitectura
-
-CalendarIA mantiene una separación explícita entre interfaz, dominio, servicios externos y seguridad.
 
 ```text
 CalendarIA
@@ -107,7 +108,7 @@ CalendarIA
 ├── Browser
 │   ├── app.js                  UI y flujo de interacción
 │   ├── api.js                  Cliente HTTP same-origin
-│   ├── store.js                Persistencia local versionada
+│   ├── store.js                Estado transitorio de sincronización
 │   ├── media.js                Imagen y captura WAV PCM
 │   └── pcm-recorder-worklet.js Procesamiento de audio
 │
@@ -119,24 +120,22 @@ CalendarIA
 │   ├── gemini.js               Extracción multimodal
 │   └── google.js               OAuth y Calendar API
 │
-├── Google Gemini
+├── Gemini
 │   └── Interactions API
 │
 └── Google Calendar
-    └── Events API
+    └── Events API · fuente de verdad de eventos
 ```
 
-El frontend se mantiene en **Vanilla JavaScript modular**. La decisión es intencional: el proyecto no necesita un framework de componentes para resolver su complejidad actual y evita añadir una capa de abstracción sin beneficio funcional directo.
+El frontend utiliza **Vanilla JavaScript modular**. La decisión mantiene una superficie pequeña, sin runtime de framework ni proceso de bundle innecesario para la complejidad actual del producto.
 
 ---
 
 ## IA con salida estructurada
 
-El navegador nunca decide las instrucciones privilegiadas del modelo.
+El navegador no controla las instrucciones privilegiadas del modelo. El system instruction pertenece al backend y Gemini recibe una tarea limitada: extraer un único evento.
 
-El prompt de sistema pertenece al backend y Gemini recibe una tarea limitada: extraer un único evento.
-
-La respuesta se restringe mediante JSON Schema:
+La respuesta esperada tiene esta forma:
 
 ```json
 {
@@ -147,7 +146,7 @@ La respuesta se restringe mediante JSON Schema:
 }
 ```
 
-Después de Gemini, CalendarIA aplica una segunda capa de validación sobre:
+CalendarIA utiliza Structured Outputs dentro del subconjunto de JSON Schema admitido por Gemini y después ejecuta una segunda validación de dominio sobre:
 
 - título;
 - fecha real de calendario;
@@ -155,50 +154,27 @@ Después de Gemini, CalendarIA aplica una segunda capa de validación sobre:
 - categorías permitidas;
 - recordatorios permitidos.
 
-La aplicación configura las interacciones con `store: false` y mantiene el principio de **human-in-the-loop**: ningún resultado generado por IA se agenda automáticamente.
+Las interacciones se envían con `store: false` y ningún resultado de IA se agenda automáticamente.
 
 ---
 
 ## Seguridad por diseño
 
-CalendarIA fue endurecido pensando en exposición pública.
+CalendarIA está diseñado para exposición pública en una única instancia de aplicación.
 
-### Protección de Gemini
+### Gemini
 
-- El cliente no puede proporcionar ni reemplazar el system prompt.
-- El endpoint de IA requiere una sesión autenticada.
-- Las solicitudes requieren CSRF token.
-- Existen límites adicionales por usuario e IP.
-- Imagen y audio utilizan allowlists de MIME y límites de tamaño.
-- La salida del modelo se valida nuevamente en el dominio.
+- El cliente no puede reemplazar el system instruction.
+- El endpoint requiere sesión autenticada y CSRF token.
+- Hay límites de uso por usuario e IP.
+- Imagen y audio usan allowlists MIME y límites de tamaño.
+- Los errores de IA se correlacionan mediante `requestId`/`analysisId`.
+- Los logs no almacenan prompts, imágenes, audio ni API keys.
+- Los errores transitorios del proveedor usan reintentos acotados con backoff.
 
 ### OAuth y Google Calendar
 
 El flujo utiliza **OAuth 2.0 Authorization Code + PKCE**.
-
-```text
-Browser
-   │
-   ▼
-CalendarIA backend
-   │
-   ├── state aleatorio
-   ├── PKCE verifier
-   └── redirect a Google
-            │
-            ▼
-      Google Authorization
-            │
-            ▼
-      Authorization Code
-            │
-            ▼
-CalendarIA backend
-   │
-   ├── intercambio de código
-   ├── access token
-   └── refresh token
-```
 
 Los access tokens y refresh tokens permanecen en el servidor. La cookie del navegador contiene únicamente un identificador de sesión aleatorio firmado mediante HMAC.
 
@@ -206,54 +182,31 @@ El estado temporal de OAuth se cifra y autentica con AES-256-GCM.
 
 ### Hardening HTTP
 
-La API incorpora:
+La API incorpora Content Security Policy, HSTS en producción, `nosniff`, protección contra framing, Referrer Policy, Permissions Policy, Request IDs, errores 5xx sanitizados, timeouts y límites de tamaño de request.
 
-- Content Security Policy estricta;
-- HSTS en producción;
-- `X-Content-Type-Options: nosniff`;
-- protección contra framing;
-- Referrer Policy;
-- Permissions Policy;
-- Request IDs;
-- errores 5xx sanitizados;
-- timeouts para servicios externos;
-- límites de tamaño de request.
-
-Los datos dinámicos se renderizan con APIs DOM seguras y no mediante `innerHTML` con contenido procedente del usuario o del modelo.
+Los datos dinámicos se renderizan mediante APIs DOM seguras y no mediante `innerHTML` con contenido procedente del usuario o del modelo.
 
 ---
 
-## Sincronización de eventos
+## Calidad de código
 
-Cada evento local mantiene un estado explícito:
+El repositorio utiliza `node:test`, validación sintáctica automatizada y GitHub Actions sobre Node.js 24.
 
-```text
-local
-syncing
-synced
-failed
-```
+La cobertura funcional contempla, entre otros casos:
 
-Los eventos sincronizados conservan el `googleEventId` devuelto por Calendar API.
-
-Al eliminar un evento sincronizado, CalendarIA intenta borrar primero la copia remota. La copia local solo se elimina después de recibir confirmación de Google, evitando mostrar una eliminación falsa cuando existe un fallo de red o de autorización.
-
----
-
-## Persistencia local
-
-Los eventos se almacenan en un esquema local versionado:
-
-```json
-{
-  "version": 2,
-  "events": []
-}
-```
-
-CalendarIA incluye migración para datos creados por versiones anteriores del proyecto, validación de registros almacenados y recuperación segura ante JSON corrupto.
-
-Los identificadores locales utilizan `crypto.randomUUID()`.
+- fechas reales y años bisiestos;
+- horas válidas en formato de 24 horas;
+- categorías y recordatorios permitidos;
+- manejo de zona horaria sin mezclar UTC y hora local;
+- validación secundaria de respuestas de IA;
+- Structured Outputs compatibles con Gemini;
+- payload multimodal `user_input` para texto, imagen y audio;
+- MIME y Base64 multimedia;
+- filtro de eventos creados por el usuario;
+- exclusión de eventos automáticos y pasados;
+- agrupación de recurrencias;
+- prevención de eventos duplicados;
+- ausencia de persistencia local de eventos.
 
 ---
 
@@ -264,57 +217,19 @@ Los identificadores locales utilizan `crypto.randomUUID()`.
 | Frontend | HTML5, CSS, Vanilla JavaScript ES Modules |
 | Backend | Node.js 24, Express |
 | Inteligencia artificial | Gemini Interactions API |
-| Salida de IA | JSON Schema + validación de dominio |
+| Salida de IA | Structured Outputs + validación de dominio |
 | Autorización | Google OAuth 2.0 + PKCE |
-| Calendario | Google Calendar API |
+| Calendario y eventos | Google Calendar API |
 | Audio | Web Audio API, AudioWorklet, WAV PCM |
-| Persistencia | localStorage versionado + sesión server-side |
+| Sesiones | Server-side + cookie HttpOnly firmada |
 | CI | GitHub Actions |
 | Deploy | Render |
 
 ---
 
-## Calidad de código
-
-El repositorio incluye pruebas con `node:test` y validación sintáctica automatizada.
-
-La cobertura funcional actual contempla:
-
-- fechas reales y años bisiestos;
-- horas válidas en formato de 24 horas;
-- categorías y recordatorios permitidos;
-- cálculo de fin de evento sin mezclar UTC con hora local;
-- validación secundaria de respuestas de IA;
-- MIME y Base64 multimedia;
-- extracción de `model_output` desde Interactions API.
-
-GitHub Actions valida cada Pull Request y los cambios de `main` sobre Node.js 24.
-
----
-
-## Decisiones de ingeniería
-
-### ¿Por qué no React?
-
-La interfaz es una aplicación compacta con un conjunto limitado de estados y vistas. ES Modules permiten separar responsabilidades sin introducir bundle, runtime de framework o tooling adicional.
-
-### ¿Por qué revisión humana?
-
-Fechas y horas son datos sensibles a ambigüedad lingüística. CalendarIA trata la IA como un extractor asistido, no como una autoridad final.
-
-### ¿Por qué sesiones server-side?
-
-Los tokens OAuth no deben quedar disponibles para JavaScript del navegador. El servidor conserva las credenciales y el cliente únicamente mantiene un identificador de sesión firmado.
-
-### ¿Por qué un modelo de evento propio?
-
-Separar el evento de dominio del recurso de Google Calendar permite validar, migrar y evolucionar CalendarIA sin acoplar toda la aplicación al formato de una API externa.
-
----
-
 ## Estado del proyecto
 
-**CalendarIA 2.0** representa la evolución del MVP inicial hacia una arquitectura preparada para exposición pública en una única instancia de aplicación.
+**CalendarIA 2.0** representa la evolución del MVP inicial hacia una aplicación multimodal integrada con servicios reales de Google.
 
 ### Implementado
 
@@ -322,26 +237,26 @@ Separar el evento de dominio del recurso de Google Calendar permite validar, mig
 - [x] Extracción mediante texto
 - [x] Análisis de imágenes
 - [x] Captura y análisis de voz
-- [x] Revisión humana de eventos generados
+- [x] Revisión humana de resultados de IA
 - [x] OAuth 2.0 + PKCE
-- [x] Integración con Google Calendar
+- [x] Google Calendar como fuente de verdad
+- [x] Consulta de próximos eventos creados por el usuario
+- [x] Agrupación de recurrencias
+- [x] Prevención de duplicados
 - [x] Refresh de tokens
 - [x] Eliminación remota consistente
-- [x] Rate limiting
-- [x] CSRF
+- [x] Rate limiting y CSRF
 - [x] CSP y hardening HTTP
-- [x] Persistencia local versionada
+- [x] Logging correlacionado de IA
 - [x] Tests y CI
 - [x] Interfaz responsive
 
 ### Próximos retos
 
-- [ ] Persistencia multi-dispositivo
-- [ ] Sincronización bidireccional con Google Calendar
-- [ ] Edición de eventos sincronizados desde la interfaz
+- [ ] Edición de eventos desde la interfaz
 - [ ] Redis para sesiones y rate limiting distribuido
 - [ ] Métricas y observabilidad
-- [ ] PWA y experiencia offline
+- [ ] PWA
 
 ---
 
