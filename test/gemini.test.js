@@ -3,7 +3,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { ValidationError } = require('../src/lib/event');
-const { extractInteractionText, validateAnalyzeRequest } = require('../src/services/gemini');
+const {
+  createProviderError,
+  extractInteractionText,
+  isRetryableStatus,
+  validateAnalyzeRequest,
+} = require('../src/services/gemini');
 
 test('acepta texto dentro del límite de análisis', () => {
   assert.deepEqual(validateAnalyzeRequest({ text: 'Examen mañana a las 8' }), {
@@ -47,4 +52,40 @@ test('extrae texto exclusivamente de un model_output', () => {
   };
   assert.equal(extractInteractionText(payload), '{"titulo":"Evento"}');
   assert.equal(extractInteractionText({ steps: [] }), '');
+});
+
+test('reintenta solo estados transitorios del proveedor', () => {
+  for (const status of [408, 429, 500, 502, 503, 504]) {
+    assert.equal(isRetryableStatus(status), true, `HTTP ${status} debe ser reintentable`);
+  }
+  for (const status of [400, 401, 403, 404]) {
+    assert.equal(isRetryableStatus(status), false, `HTTP ${status} no debe reintentarse`);
+  }
+});
+
+test('clasifica y sanitiza errores de autenticación de Gemini', () => {
+  const error = createProviderError(403, {
+    error: {
+      status: 'PERMISSION_DENIED',
+      message: 'API key AIzaabcdefghijklmnopqrstuvwxyz1234567890 was rejected',
+    },
+  });
+
+  assert.equal(error.statusCode, 503);
+  assert.equal(error.code, 'AI_PROVIDER_AUTH_ERROR');
+  assert.equal(error.provider.httpStatus, 403);
+  assert.equal(error.provider.status, 'PERMISSION_DENIED');
+  assert.equal(error.provider.model, 'gemini-3.5-flash');
+  assert.doesNotMatch(error.provider.message, /AIza/);
+  assert.match(error.provider.message, /\[redacted-api-key\]/);
+});
+
+test('clasifica el límite del proveedor como HTTP 429', () => {
+  const error = createProviderError(429, {
+    error: { status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded' },
+  });
+
+  assert.equal(error.statusCode, 429);
+  assert.equal(error.code, 'AI_PROVIDER_RATE_LIMITED');
+  assert.equal(error.provider.status, 'RESOURCE_EXHAUSTED');
 });
