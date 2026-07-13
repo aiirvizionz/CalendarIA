@@ -243,7 +243,7 @@ function normalizeCalendarEvent(event, recurrence = null) {
     organizerSelf: Boolean(event?.organizer?.self),
     recurringEventId,
     recurring: Boolean(recurringEventId),
-    recurrence: recurringEventId ? recurrence : null,
+    recurrence: recurringEventId ? recurrence || { frequency: 'custom', interval: 1 } : null,
   };
 }
 
