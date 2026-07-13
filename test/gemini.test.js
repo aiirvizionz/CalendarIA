@@ -63,7 +63,7 @@ test('reintenta solo estados transitorios del proveedor', () => {
   }
 });
 
-test('clasifica y sanitiza errores de autenticación de Gemini', () => {
+test('clasifica y sanitiza errores de autenticación de Gemini con mensaje exponible', () => {
   const error = createProviderError(403, {
     error: {
       status: 'PERMISSION_DENIED',
@@ -71,13 +71,28 @@ test('clasifica y sanitiza errores de autenticación de Gemini', () => {
     },
   });
 
-  assert.equal(error.statusCode, 503);
+  assert.equal(error.statusCode, 424);
   assert.equal(error.code, 'AI_PROVIDER_AUTH_ERROR');
+  assert.match(error.message, /API key en Render/);
   assert.equal(error.provider.httpStatus, 403);
   assert.equal(error.provider.status, 'PERMISSION_DENIED');
   assert.equal(error.provider.model, 'gemini-3.5-flash');
   assert.doesNotMatch(error.provider.message, /AIza/);
   assert.match(error.provider.message, /\[redacted-api-key\]/);
+});
+
+test('clasifica solicitudes inválidas y modelos no disponibles sin convertirlos en 500 genérico', () => {
+  const requestError = createProviderError(400, {
+    error: { status: 'INVALID_ARGUMENT', message: 'Invalid response format' },
+  });
+  const modelError = createProviderError(404, {
+    error: { status: 'NOT_FOUND', message: 'Model not found' },
+  });
+
+  assert.equal(requestError.statusCode, 422);
+  assert.equal(requestError.code, 'AI_PROVIDER_REQUEST_ERROR');
+  assert.equal(modelError.statusCode, 424);
+  assert.equal(modelError.code, 'AI_MODEL_UNAVAILABLE');
 });
 
 test('clasifica el límite del proveedor como HTTP 429', () => {
