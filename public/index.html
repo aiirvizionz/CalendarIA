@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0b0d12">
+  <meta name="theme-color" content="#f5f7fb">
   <meta name="description" content="CalendarIA convierte texto, imágenes y voz en eventos revisables para Google Calendar.">
   <title>CalendarIA · Agenda inteligente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,7 +23,10 @@
 
     <div class="account-area">
       <div id="userChip" class="user-chip is-hidden" aria-live="polite">
-        <img id="userAvatar" class="user-avatar" alt="">
+        <span class="user-avatar-wrap">
+          <img id="userAvatar" class="user-avatar is-hidden" alt="" referrerpolicy="no-referrer">
+          <span id="userAvatarFallback" class="user-avatar-fallback" aria-hidden="true"></span>
+        </span>
         <span id="userName"></span>
       </div>
       <button id="authButton" class="button button-secondary" type="button">
@@ -33,17 +36,7 @@
   </header>
 
   <main class="app-shell">
-    <section class="hero" aria-labelledby="heroTitle">
-      <p class="eyebrow">Tu agenda, sin capturar datos dos veces</p>
-      <h1 id="heroTitle">Convierte una idea, captura o nota de voz en un <em>evento listo.</em></h1>
-      <p class="hero-copy">CalendarIA extrae fecha, hora y contexto con Gemini. Tú revisas el resultado antes de enviarlo a Google Calendar.</p>
-      <div class="privacy-note">
-        <span class="privacy-dot" aria-hidden="true"></span>
-        La IA y Google Calendar solo se habilitan después de iniciar sesión. Los tokens OAuth permanecen en el servidor; el navegador recibe solo un ID de sesión HttpOnly.
-      </div>
-    </section>
-
-    <section class="workspace" aria-label="Crear evento">
+    <section class="workspace" aria-label="Agenda de CalendarIA">
       <div class="composer-card">
         <div class="tabs" role="tablist" aria-label="Método de creación">
           <button class="tab is-active" id="tabManual" type="button" role="tab" aria-selected="true" aria-controls="panelManual" data-tab="manual">Manual</button>
@@ -178,14 +171,17 @@
 
       <aside class="events-card" aria-labelledby="eventsTitle">
         <div class="events-heading">
-          <div><p class="eyebrow">Próximamente</p><h2 id="eventsTitle">Tus eventos</h2></div>
-          <span id="eventCount" class="count-badge">0</span>
+          <div><p class="eyebrow">Google Calendar</p><h2 id="eventsTitle">Tus eventos</h2></div>
+          <div class="events-heading-actions">
+            <button id="refreshEventsButton" class="icon-button refresh-events" type="button" aria-label="Actualizar eventos" title="Actualizar eventos">↻</button>
+            <span id="eventCount" class="count-badge">0</span>
+          </div>
         </div>
         <div id="eventsList" class="events-list"></div>
         <div id="emptyState" class="empty-state">
           <span class="empty-orbit" aria-hidden="true"></span>
-          <h3>Tu agenda empieza aquí</h3>
-          <p>Crea un evento manual o deja que Gemini extraiga los datos por ti.</p>
+          <h3>Tu agenda está libre</h3>
+          <p>Tus próximos eventos de Google Calendar aparecerán aquí.</p>
         </div>
       </aside>
     </section>
@@ -201,7 +197,10 @@
         <p class="event-date"></p>
         <div class="event-meta"><span class="event-category"></span><span class="event-reminders"></span></div>
       </div>
-      <button class="icon-button delete-event" type="button" aria-label="Eliminar evento">×</button>
+      <div class="event-actions">
+        <a class="icon-button open-event is-hidden" target="_blank" rel="noopener noreferrer" aria-label="Abrir evento en Google Calendar" title="Abrir en Google Calendar">↗</a>
+        <button class="icon-button delete-event" type="button" aria-label="Eliminar evento" title="Eliminar evento">×</button>
+      </div>
     </article>
   </template>
 
