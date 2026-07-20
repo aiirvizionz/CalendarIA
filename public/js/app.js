@@ -8,7 +8,6 @@ import {
   startGoogleAuth,
 } from './api.js';
 import { readImage, startAudioCapture } from './media.js';
-import { addEvent, listEvents, removeEvent, updateEvent } from './store.js';
 
 const CATEGORY_LABELS = Object.freeze({
   examen: 'Examen',
@@ -45,9 +44,20 @@ const state = {
   calendarEvents: [],
   calendarEventsLoaded: false,
   eventsLoading: false,
+  reconcileTimer: null,
 };
 
 const $ = (id) => document.getElementById(id);
+
+function purgeLegacyLocalEvents() {
+  for (const key of ['calendaria_events_v2', 'ag_events']) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // CalendarIA no depende de almacenamiento local; fallar al limpiar no bloquea la aplicación.
+    }
+  }
+}
 
 function normalizeComparableText(value) {
   return String(value || '')
@@ -92,21 +102,15 @@ function selectedReminders(group) {
   return values.length ? values : [10];
 }
 
-function reminderLabel(value) {
-  return REMINDER_LABELS[value] || `${value} min`;
+function setSelectedReminders(group, reminders = [10]) {
+  const selected = new Set((Array.isArray(reminders) ? reminders : [10]).map(Number));
+  document.querySelectorAll(`[data-reminder-group="${group}"] input`).forEach((input) => {
+    input.checked = selected.has(Number(input.value));
+  });
 }
 
-function formatLocalEventDate(event) {
-  const parsed = new Date(`${event.date}T${event.time}:00`);
-  if (Number.isNaN(parsed.getTime())) return `${event.date} · ${event.time}`;
-  return new Intl.DateTimeFormat('es-MX', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(parsed);
+function reminderLabel(value) {
+  return REMINDER_LABELS[value] || `${value} min`;
 }
 
 function formatGoogleEventDate(event) {
@@ -146,20 +150,6 @@ function googleEventTimestamp(event) {
   return Number.isFinite(timestamp) ? timestamp : Number.MAX_SAFE_INTEGER;
 }
 
-function localEventTimestamp(event) {
-  const timestamp = new Date(`${event.date}T${event.time}:00`).getTime();
-  return Number.isFinite(timestamp) ? timestamp : Number.MAX_SAFE_INTEGER;
-}
-
-function localEventStillActive(event) {
-  const start = localEventTimestamp(event);
-  return Number.isFinite(start) && start + (60 * 60 * 1000) > Date.now();
-}
-
-function localEventContentKey(event) {
-  return `${normalizeComparableText(event.title)}|${event.date}|${event.time}`;
-}
-
 function recurrenceLabel(recurrence) {
   if (!recurrence) return '';
   const definition = RECURRENCE_LABELS[recurrence.frequency] || RECURRENCE_LABELS.custom;
@@ -167,12 +157,6 @@ function recurrenceLabel(recurrence) {
   return interval === 1
     ? `Recurrente · ${definition.single}`
     : `Recurrente · cada ${interval} ${definition.plural}`;
-}
-
-function compareAgendaItems(a, b) {
-  const aTime = a.source === 'google' ? googleEventTimestamp(a.event) : localEventTimestamp(a.event);
-  const bTime = b.source === 'google' ? googleEventTimestamp(b.event) : localEventTimestamp(b.event);
-  return aTime - bTime;
 }
 
 function integrationEnabled(name) {
@@ -246,7 +230,7 @@ function updateAuthUI() {
     gateDescription = 'CalendarIA está comprobando la disponibilidad del servidor.';
   } else if (!googleConfigured) {
     gateTitle = 'Google OAuth no está configurado';
-    gateDescription = 'La creación manual sigue disponible. La IA y la sincronización se habilitarán cuando el servidor configure Google OAuth.';
+    gateDescription = 'La IA y la creación de eventos requieren Google Calendar en este despliegue.';
   } else if (!geminiConfigured) {
     gateTitle = 'Gemini no está configurado';
     gateDescription = 'La creación manual y Google Calendar siguen disponibles, pero el análisis con IA está temporalmente deshabilitado.';
@@ -290,36 +274,13 @@ function setActiveTab(tab) {
 }
 
 function agendaItems() {
-  const googleItems = state.calendarEvents.map((event) => ({
-    source: 'google',
-    key: `google:${event.id}`,
-    event,
-  }));
-  const remoteIds = new Set(
-    state.calendarEvents.flatMap((event) => [event.id, event.deleteId].filter(Boolean)),
-  );
-  const seenLocalContent = new Set();
-
-  const localItems = listEvents()
-    .filter((event) => localEventStillActive(event))
-    .filter((event) => {
-      if (state.calendarEventsLoaded && event.googleEventId && remoteIds.has(event.googleEventId)) return false;
-      const key = localEventContentKey(event);
-      if (seenLocalContent.has(key)) return false;
-      seenLocalContent.add(key);
-      return true;
-    })
-    .map((event) => ({
-      source: 'local',
-      key: `local:${event.id}`,
-      event,
-    }));
-
-  return [...googleItems, ...localItems].sort(compareAgendaItems);
+  return [...state.calendarEvents]
+    .filter((event) => event?.id)
+    .sort((a, b) => googleEventTimestamp(a) - googleEventTimestamp(b));
 }
 
 function googleReminderText(event) {
-  if (event.reminders.length) {
+  if (Array.isArray(event.reminders) && event.reminders.length) {
     return `Aviso: ${event.reminders.map(reminderLabel).join(', ')}`;
   }
   return event.useDefaultReminders ? 'Avisos de Google' : 'Sin aviso';
@@ -332,47 +293,45 @@ function renderEvents() {
   $('eventCount').textContent = String(items.length);
   $('emptyState').classList.toggle('is-hidden', items.length > 0 || state.eventsLoading);
 
-  for (const item of items) {
+  for (const event of items) {
     const fragment = $('eventTemplate').content.cloneNode(true);
     const card = fragment.querySelector('.event-card');
-    const event = item.event;
-    card.dataset.eventId = item.key;
+    card.dataset.eventId = event.id;
     fragment.querySelector('.event-title').textContent = event.title;
+    fragment.querySelector('.event-date').textContent = formatGoogleEventDate(event);
+    fragment.querySelector('.sync-badge').textContent = 'Google';
+    fragment.querySelector('.event-category').textContent = event.recurring
+      ? recurrenceLabel(event.recurrence)
+      : 'Calendario';
+    fragment.querySelector('.event-reminders').textContent = googleReminderText(event);
 
-    const sourceBadge = fragment.querySelector('.sync-badge');
-    const category = fragment.querySelector('.event-category');
-    const reminders = fragment.querySelector('.event-reminders');
     const openLink = fragment.querySelector('.open-event');
-
-    if (item.source === 'google') {
-      fragment.querySelector('.event-date').textContent = formatGoogleEventDate(event);
-      sourceBadge.textContent = 'Google';
-      category.textContent = event.recurring ? recurrenceLabel(event.recurrence) : 'Calendario';
-      reminders.textContent = googleReminderText(event);
-      if (event.htmlLink) {
-        openLink.href = event.htmlLink;
-        openLink.classList.remove('is-hidden');
-      }
-    } else {
-      fragment.querySelector('.event-date').textContent = formatLocalEventDate(event);
-      const syncLabels = {
-        local: 'Local',
-        syncing: 'Sincronizando…',
-        synced: 'Google ✓',
-        failed: 'Error de sync',
-      };
-      sourceBadge.textContent = syncLabels[event.syncStatus] || 'Local';
-      category.textContent = CATEGORY_LABELS[event.category] || event.category;
-      reminders.textContent = `Aviso: ${event.reminders.map(reminderLabel).join(', ')}`;
-      if (event.googleEventUrl) {
-        openLink.href = event.googleEventUrl;
-        openLink.classList.remove('is-hidden');
-      }
+    if (event.htmlLink) {
+      openLink.href = event.htmlLink;
+      openLink.classList.remove('is-hidden');
     }
 
-    fragment.querySelector('.delete-event').addEventListener('click', () => handleDeleteEvent(item));
+    fragment.querySelector('.delete-event').addEventListener('click', () => handleDeleteEvent(event));
     list.appendChild(fragment);
   }
+}
+
+function eventIdentity(event) {
+  return event?.deleteId || event?.id || '';
+}
+
+function mergeCalendarEvent(event) {
+  if (!event?.id) return;
+  const identity = eventIdentity(event);
+  state.calendarEvents = state.calendarEvents.filter((candidate) => {
+    if (candidate.id === event.id) return false;
+    if (identity && eventIdentity(candidate) === identity) return false;
+    const sameTitle = normalizeComparableText(candidate.title) === normalizeComparableText(event.title);
+    return !(sameTitle && googleEventTimestamp(candidate) === googleEventTimestamp(event));
+  });
+  state.calendarEvents.push(event);
+  state.calendarEventsLoaded = true;
+  renderEvents();
 }
 
 async function refreshGoogleEvents({ silent = false } = {}) {
@@ -402,91 +361,48 @@ async function refreshGoogleEvents({ silent = false } = {}) {
   }
 }
 
-async function saveEvent(event) {
-  const shouldSync = state.session.authenticated && integrationEnabled('google');
-  const stored = addEvent({
-    ...event,
-    reminders: event.reminders || [10],
-    googleEventId: '',
-    googleEventUrl: '',
-    syncStatus: shouldSync ? 'syncing' : 'local',
-  });
-  renderEvents();
+function scheduleCalendarReconciliation() {
+  if (state.reconcileTimer) window.clearTimeout(state.reconcileTimer);
+  state.reconcileTimer = window.setTimeout(() => {
+    state.reconcileTimer = null;
+    refreshGoogleEvents({ silent: true });
+  }, 1400);
+}
 
-  if (!shouldSync) {
-    showToast('Evento guardado en este dispositivo', 'success');
-    return stored;
+async function saveEvent(event) {
+  if (!state.session.authenticated || !integrationEnabled('google')) {
+    throw new Error('Conecta Google para guardar eventos en tu calendario');
   }
+
+  const result = await createGoogleEvent(event);
+  if (result?.event?.id) mergeCalendarEvent(result.event);
+  else scheduleCalendarReconciliation();
+
+  showToast(
+    result?.duplicate
+      ? 'Ese evento ya existía en Google Calendar; no se creó una copia.'
+      : 'Evento guardado en Google Calendar',
+    'success',
+  );
+  scheduleCalendarReconciliation();
+  return result;
+}
+
+async function handleDeleteEvent(event) {
+  const targetId = event.deleteId || event.id;
+  const subject = event.recurring ? 'la serie recurrente' : 'el evento';
+  const confirmed = window.confirm(`¿Eliminar ${subject} “${event.title}” de Google Calendar?`);
+  if (!confirmed) return;
 
   try {
-    const result = await createGoogleEvent(event);
-    const synced = updateEvent(stored.id, {
-      googleEventId: result.googleEventId,
-      googleEventUrl: result.htmlLink,
-      syncStatus: 'synced',
-    });
-    await refreshGoogleEvents({ silent: true });
-    showToast(
-      result.duplicate
-        ? 'Ese evento ya existía en Google Calendar; no se creó una copia.'
-        : 'Evento guardado en Google Calendar',
-      'success',
-    );
-    return synced;
-  } catch (error) {
-    updateEvent(stored.id, { syncStatus: 'failed' });
+    await deleteGoogleEvent(targetId);
+    state.calendarEvents = state.calendarEvents.filter((candidate) => eventIdentity(candidate) !== targetId);
     renderEvents();
+    showToast(event.recurring ? 'Serie recurrente eliminada de Google Calendar' : 'Evento eliminado de Google Calendar', 'success');
+    scheduleCalendarReconciliation();
+  } catch (error) {
     showToast(errorMessage(error), 'error');
-    return stored;
   }
-}
-
-function removeLocalCopies(...googleEventIds) {
-  const ids = new Set(googleEventIds.filter(Boolean));
-  if (!ids.size) return;
-  for (const localEvent of listEvents()) {
-    if (ids.has(localEvent.googleEventId)) removeEvent(localEvent.id);
-  }
-}
-
-async function handleDeleteEvent(item) {
-  if (item.source === 'google') {
-    const targetId = item.event.deleteId || item.event.id;
-    const subject = item.event.recurring ? 'la serie recurrente' : 'el evento';
-    const confirmed = window.confirm(`¿Eliminar ${subject} “${item.event.title}” de Google Calendar?`);
-    if (!confirmed) return;
-
-    try {
-      await deleteGoogleEvent(targetId);
-      removeLocalCopies(item.event.id, targetId);
-      state.calendarEvents = state.calendarEvents.filter((event) => (event.deleteId || event.id) !== targetId);
-      renderEvents();
-      showToast(item.event.recurring ? 'Serie recurrente eliminada de Google Calendar' : 'Evento eliminado de Google Calendar', 'success');
-      await refreshGoogleEvents({ silent: true });
-    } catch (error) {
-      showToast(errorMessage(error), 'error');
-    }
-    return;
-  }
-
-  const event = item.event;
-  if (event.googleEventId) {
-    if (!state.session.authenticated || !integrationEnabled('google')) {
-      showToast('Google Calendar no está disponible para eliminar la copia sincronizada', 'error');
-      return;
-    }
-    try {
-      await deleteGoogleEvent(event.googleEventId);
-      state.calendarEvents = state.calendarEvents.filter((calendarEvent) => calendarEvent.id !== event.googleEventId);
-    } catch (error) {
-      showToast(errorMessage(error), 'error');
-      return;
-    }
-  }
-
-  removeEvent(event.id);
-  renderEvents();
-  showToast('Evento eliminado', 'success');
 }
 
 function eventFromManualForm() {
@@ -500,6 +416,16 @@ function eventFromManualForm() {
   };
 }
 
+function eventFromReviewForm() {
+  return {
+    title: $('reviewTitleInput').value.trim(),
+    date: $('reviewDateInput').value,
+    time: $('reviewTimeInput').value,
+    category: $('reviewCategoryInput').value,
+    reminders: selectedReminders('review'),
+  };
+}
+
 function validateClientEvent(event) {
   if (!event.title || event.title.length > 120) throw new Error('Escribe un título válido');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(event.date)) throw new Error('Selecciona una fecha válida');
@@ -509,17 +435,28 @@ function validateClientEvent(event) {
 }
 
 function showReview(event) {
-  state.pendingEvent = event;
-  $('reviewEventTitle').textContent = event.title;
-  $('reviewEventDate').textContent = new Intl.DateTimeFormat('es-MX', { dateStyle: 'full' })
-    .format(new Date(`${event.date}T00:00:00`));
-  $('reviewEventTime').textContent = event.time;
-  $('reviewEventCategory').textContent = CATEGORY_LABELS[event.category] || event.category;
+  state.pendingEvent = { ...event };
+  $('reviewTitleInput').value = event.title || '';
+  $('reviewDateInput').value = event.date || '';
+  $('reviewTimeInput').value = event.time || '';
+  $('reviewCategoryInput').value = CATEGORY_LABELS[event.category] ? event.category : 'otro';
+  setSelectedReminders('review', event.reminders || [10]);
   $('panelManual').classList.add('is-hidden');
   $('panelAi').classList.add('is-hidden');
   $('panelAudio').classList.add('is-hidden');
   $('reviewPanel').classList.remove('is-hidden');
   $('reviewTitle').focus?.();
+}
+
+function focusReviewControl(targetId) {
+  const control = $(targetId);
+  if (!control) return;
+  control.focus();
+  if (typeof control.showPicker === 'function') {
+    try { control.showPicker(); } catch { /* El navegador puede exigir interacción específica. */ }
+  } else if (typeof control.select === 'function' && control.type === 'text') {
+    control.select();
+  }
 }
 
 function clearImage() {
@@ -537,13 +474,15 @@ async function processImage(file) {
   if (!file) return;
   try {
     clearImage();
+    $('dropTitle').textContent = 'Optimizando imagen…';
     state.image = await readImage(file);
     $('imagePreview').src = state.image.previewUrl;
     $('imagePreview').classList.remove('is-hidden');
     $('removeImageButton').classList.remove('is-hidden');
     $('dropTitle').textContent = 'Imagen lista para analizar';
-    $('dropDescription').textContent = file.name;
+    $('dropDescription').textContent = state.image.description || file.name;
   } catch (error) {
+    clearImage();
     showToast(errorMessage(error), 'error');
   }
 }
@@ -645,10 +584,7 @@ function bindEvents() {
 
     try {
       await logout();
-      state.session = {
-        authenticated: false,
-        integrations: state.session.integrations,
-      };
+      state.session = { authenticated: false, integrations: state.session.integrations };
       state.calendarEvents = [];
       state.calendarEventsLoaded = false;
       updateAuthUI();
@@ -663,12 +599,16 @@ function bindEvents() {
 
   $('manualForm').addEventListener('submit', async (event) => {
     event.preventDefault();
+    const button = $('manualSubmitButton');
+    setButtonBusy(button, true, 'Guardando…');
     try {
       const manualEvent = validateClientEvent(eventFromManualForm());
       await saveEvent(manualEvent);
       $('manualTitle').value = '';
     } catch (error) {
       showToast(errorMessage(error), 'error');
+    } finally {
+      setButtonBusy(button, false, '');
     }
   });
 
@@ -685,14 +625,12 @@ function bindEvents() {
       $('dropZone').classList.add('is-dragging');
     });
   }
-
   for (const eventName of ['dragleave', 'drop']) {
     $('dropZone').addEventListener(eventName, (event) => {
       event.preventDefault();
       $('dropZone').classList.remove('is-dragging');
     });
   }
-
   $('dropZone').addEventListener('drop', (event) => processImage(event.dataTransfer?.files?.[0]));
 
   $('aiForm').addEventListener('submit', async (event) => {
@@ -713,6 +651,10 @@ function bindEvents() {
     else beginRecording();
   });
 
+  document.querySelectorAll('[data-review-target]').forEach((button) => {
+    button.addEventListener('click', () => focusReviewControl(button.dataset.reviewTarget));
+  });
+
   $('cancelReviewButton').addEventListener('click', () => {
     state.pendingEvent = null;
     setActiveTab(state.activeTab);
@@ -723,12 +665,15 @@ function bindEvents() {
     const button = $('confirmReviewButton');
     setButtonBusy(button, true, 'Guardando…');
     try {
-      await saveEvent({ ...state.pendingEvent, reminders: selectedReminders('review') });
+      const reviewed = validateClientEvent(eventFromReviewForm());
+      await saveEvent(reviewed);
       state.pendingEvent = null;
       $('aiText').value = '';
       $('aiCharacterCount').textContent = '0/3000';
       clearImage();
       setActiveTab(state.activeTab);
+    } catch (error) {
+      showToast(errorMessage(error), 'error');
     } finally {
       setButtonBusy(button, false, '');
     }
@@ -736,6 +681,7 @@ function bindEvents() {
 }
 
 async function initialize() {
+  purgeLegacyLocalEvents();
   $('manualDate').value = localDateValue();
   bindTabs();
   bindEvents();
