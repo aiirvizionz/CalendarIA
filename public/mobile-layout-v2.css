@@ -1,0 +1,215 @@
+/* Loaded through footer.css. Critical responsive overrides use !important because dark-theme.css is loaded later. */
+
+@media (max-width: 900px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .site-header,
+  .app-shell,
+  .site-footer {
+    width: min(calc(100% - 24px), var(--max-width)) !important;
+    max-width: 100% !important;
+  }
+
+  .app-shell {
+    padding-inline: 0 !important;
+  }
+
+  .workspace {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-auto-flow: row !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    gap: 14px !important;
+  }
+
+  .composer-card,
+  .events-card {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    overflow: hidden !important;
+  }
+
+  .composer-card {
+    order: 1;
+  }
+
+  .events-card {
+    order: 2;
+    min-height: 0 !important;
+  }
+
+  .tabs,
+  .panel-wrap,
+  .panel,
+  .review-panel,
+  .voice-stage,
+  form,
+  fieldset,
+  .field,
+  .field-grid,
+  .drop-zone,
+  .review-form,
+  .review-field,
+  .events-heading,
+  .events-list,
+  .empty-state {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .events-list {
+    overflow: visible !important;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 620px) {
+  .site-header,
+  .app-shell,
+  .site-footer {
+    width: calc(100% - 20px) !important;
+  }
+
+  .site-header {
+    min-height: 76px !important;
+    gap: 10px !important;
+  }
+
+  .brand,
+  .account-area {
+    min-width: 0;
+  }
+
+  .brand {
+    gap: 8px !important;
+    white-space: nowrap;
+  }
+
+  .account-area {
+    margin-left: auto;
+    flex: none;
+  }
+
+  .account-area .button {
+    white-space: nowrap;
+  }
+
+  .workspace {
+    gap: 12px !important;
+  }
+
+  .tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .tab {
+    min-width: 0 !important;
+    overflow: hidden;
+  }
+
+  .tab span {
+    max-width: 100%;
+    line-height: 1.15;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .panel-wrap {
+    padding: 16px !important;
+  }
+
+  .field-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+  }
+
+  .choice-grid {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .choice span {
+    white-space: normal;
+  }
+
+  .review-control {
+    min-width: 0;
+  }
+
+  .events-card {
+    padding: 18px !important;
+  }
+
+  .events-heading {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .empty-state {
+    min-height: 260px !important;
+    padding: 28px 14px !important;
+  }
+
+  .empty-state p {
+    max-width: 250px;
+  }
+
+  .toast-region {
+    right: 10px;
+    bottom: 10px;
+    width: calc(100% - 20px);
+  }
+}
+
+@media (max-width: 390px) {
+  .site-header,
+  .app-shell,
+  .site-footer {
+    width: calc(100% - 16px) !important;
+  }
+
+  .brand-logo {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .brand {
+    font-size: 0.76rem !important;
+  }
+
+  .account-area .button {
+    min-height: 36px !important;
+    padding: 7px 9px !important;
+    font-size: 0.66rem !important;
+  }
+
+  .user-avatar-wrap,
+  .user-avatar,
+  .user-avatar-fallback {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .panel-wrap,
+  .events-card {
+    padding: 14px !important;
+  }
+}
