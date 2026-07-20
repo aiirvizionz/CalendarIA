@@ -1,3 +1,5 @@
+@import url('/mobile-layout-v2.css');
+
 :root {
   --footer-surface: rgba(255, 255, 255, 0.72);
   --footer-link-hover: rgba(100, 116, 223, 0.08);
