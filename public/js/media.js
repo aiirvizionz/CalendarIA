@@ -1,6 +1,9 @@
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const IMAGE_MAX_BYTES = 4 * 1024 * 1024;
+const IMAGE_TARGET_BYTES = 1.6 * 1024 * 1024;
+const IMAGE_MAX_DIMENSION = 1600;
 const AUDIO_MAX_DURATION_MS = 60_000;
+const AUDIO_TARGET_SAMPLE_RATE = 16_000;
 
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
@@ -16,6 +19,41 @@ function blobToBase64(blob) {
   });
 }
 
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+}
+
+async function optimizeImage(file) {
+  if (typeof createImageBitmap !== 'function') return file;
+
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+    const longestSide = Math.max(bitmap.width, bitmap.height);
+    const scale = Math.min(1, IMAGE_MAX_DIMENSION / longestSide);
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+
+    if (scale === 1 && file.size <= IMAGE_TARGET_BYTES) return file;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return file;
+    context.drawImage(bitmap, 0, 0, width, height);
+
+    const outputType = file.type === 'image/png' ? 'image/webp' : file.type;
+    const optimized = await canvasToBlob(canvas, outputType, outputType === 'image/png' ? undefined : 0.82);
+    if (!optimized || optimized.size >= file.size) return file;
+    return optimized;
+  } catch {
+    return file;
+  } finally {
+    bitmap?.close?.();
+  }
+}
+
 export async function readImage(file) {
   if (!file || !IMAGE_TYPES.has(file.type)) {
     throw new Error('Selecciona una imagen JPG, PNG o WebP');
@@ -24,10 +62,18 @@ export async function readImage(file) {
     throw new Error('La imagen debe pesar 4 MB o menos');
   }
 
+  const optimized = await optimizeImage(file);
+  if (!optimized.size || optimized.size > IMAGE_MAX_BYTES) {
+    throw new Error('La imagen optimizada supera el tamaño permitido');
+  }
+
+  const mimeType = IMAGE_TYPES.has(optimized.type) ? optimized.type : file.type;
+  const sizeKb = Math.max(1, Math.round(optimized.size / 1024));
   return {
-    mimeType: file.type,
-    data: await blobToBase64(file),
-    previewUrl: URL.createObjectURL(file),
+    mimeType,
+    data: await blobToBase64(optimized),
+    previewUrl: URL.createObjectURL(optimized),
+    description: `${file.name} · ${sizeKb} KB`,
   };
 }
 
@@ -40,6 +86,23 @@ function mergeFloat32Chunks(chunks) {
     offset += chunk.length;
   }
   return merged;
+}
+
+function downsampleAudio(samples, sourceRate, targetRate = AUDIO_TARGET_SAMPLE_RATE) {
+  if (!samples.length || !Number.isFinite(sourceRate) || sourceRate <= targetRate) return samples;
+  const ratio = sourceRate / targetRate;
+  const outputLength = Math.max(1, Math.floor(samples.length / ratio));
+  const output = new Float32Array(outputLength);
+
+  for (let outputIndex = 0; outputIndex < outputLength; outputIndex += 1) {
+    const start = Math.floor(outputIndex * ratio);
+    const end = Math.min(samples.length, Math.floor((outputIndex + 1) * ratio));
+    let sum = 0;
+    for (let inputIndex = start; inputIndex < end; inputIndex += 1) sum += samples[inputIndex];
+    output[outputIndex] = sum / Math.max(1, end - start);
+  }
+
+  return output;
 }
 
 function writeAscii(view, offset, text) {
@@ -92,6 +155,7 @@ export async function startAudioCapture() {
     },
   });
   const audioContext = new AudioContext();
+  const sourceSampleRate = audioContext.sampleRate;
   const chunks = [];
   let stopped = false;
   let timer = null;
@@ -137,11 +201,12 @@ export async function startAudioCapture() {
       await audioContext.close();
 
       const samples = mergeFloat32Chunks(chunks);
-      if (samples.length < audioContext.sampleRate / 4) {
+      if (samples.length < sourceSampleRate / 4) {
         throw new Error('La grabación fue demasiado corta para analizar');
       }
 
-      const blob = encodeWav(samples, audioContext.sampleRate);
+      const optimizedSamples = downsampleAudio(samples, sourceSampleRate, AUDIO_TARGET_SAMPLE_RATE);
+      const blob = encodeWav(optimizedSamples, Math.min(sourceSampleRate, AUDIO_TARGET_SAMPLE_RATE));
       resolveResult({
         mimeType: 'audio/wav',
         data: await blobToBase64(blob),
