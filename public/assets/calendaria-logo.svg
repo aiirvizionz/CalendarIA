@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">CalendarIA</title>
+  <desc id="desc">Calendario conectado con circuitos y una estrella de inteligencia artificial</desc>
+  <rect x="2" y="2" width="60" height="60" rx="17" fill="#f5f1ea"/>
+  <g fill="none" stroke="#111315" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 16v8M39 16v8M13 23h34v17c0 8-5 13-13 13H24c-7 0-11-5-11-12V28c0-3 2-5 5-5"/>
+    <path d="M37 43c5 0 7-1 10-5l3-4"/>
+    <path d="M38 51h7c3 0 5-1 7-4"/>
+  </g>
+  <g fill="#111315">
+    <rect x="20" y="29" width="4.8" height="4.8" rx="1.4"/>
+    <rect x="28" y="29" width="4.8" height="4.8" rx="1.4"/>
+    <rect x="20" y="37" width="4.8" height="4.8" rx="1.4"/>
+    <rect x="28" y="37" width="4.8" height="4.8" rx="1.4"/>
+    <path d="M39.5 27.5c.7 3.1 2.3 4.7 5.4 5.4-3.1.7-4.7 2.3-5.4 5.4-.7-3.1-2.3-4.7-5.4-5.4 3.1-.7 4.7-2.3 5.4-5.4Z"/>
+    <circle cx="52" cy="34" r="3.7"/>
+    <circle cx="52" cy="47" r="3.7"/>
+  </g>
+  <circle cx="52" cy="34" r="1.45" fill="#f5f1ea"/>
+  <circle cx="52" cy="47" r="1.45" fill="#f5f1ea"/>
+</svg>
