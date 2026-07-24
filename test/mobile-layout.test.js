@@ -8,7 +8,7 @@ const footerCss = fs.readFileSync(path.join(projectRoot, 'public', 'footer.css')
 const mobileCss = fs.readFileSync(path.join(projectRoot, 'public', 'mobile-layout-v2.css'), 'utf8');
 
 test('la hoja responsive final se carga antes del tema y fuerza una sola columna móvil', () => {
-  assert.match(footerCss, /^@import url\('\/mobile-layout-v2\.css'\);/);
+  assert.match(footerCss, /^@import url\('\/mobile-layout-v3\.css'\);/);
   assert.match(mobileCss, /@media \(max-width: 900px\)/);
   assert.match(mobileCss, /\.workspace\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*!important;/);
 });
