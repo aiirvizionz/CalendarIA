@@ -1,21 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
   <title id="title">CalendarIA</title>
-  <desc id="desc">Calendario conectado con circuitos y una estrella de inteligencia artificial</desc>
-  <rect x="2" y="2" width="60" height="60" rx="17" fill="#f5f1ea"/>
-  <g fill="none" stroke="#111315" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M17 16v8M39 16v8M13 23h34v17c0 8-5 13-13 13H24c-7 0-11-5-11-12V28c0-3 2-5 5-5"/>
-    <path d="M37 43c5 0 7-1 10-5l3-4"/>
-    <path d="M38 51h7c3 0 5-1 7-4"/>
+  <desc id="desc">Calendario con destello de inteligencia artificial y circuitos conectados</desc>
+  <rect width="1024" height="1024" rx="184" fill="#fffaf2"/>
+  <g fill="none" stroke="#111315" stroke-width="64" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M304 194v116M646 194v116"/>
+    <path d="M782 410v-54c0-70-46-112-120-112H282c-74 0-120 43-120 118v292c0 80 52 132 132 132h242c40 0 76-16 101-43 18-20 28-42 39-67 17-40 37-67 80-67h65"/>
+    <path d="M162 342h620"/>
+    <path d="M628 710c48-86 74-122 152-122h60c42 0 78-18 104-51l20-25"/>
+    <path d="M678 836v-30c0-46 38-84 84-84h108"/>
   </g>
   <g fill="#111315">
-    <rect x="20" y="29" width="4.8" height="4.8" rx="1.4"/>
-    <rect x="28" y="29" width="4.8" height="4.8" rx="1.4"/>
-    <rect x="20" y="37" width="4.8" height="4.8" rx="1.4"/>
-    <rect x="28" y="37" width="4.8" height="4.8" rx="1.4"/>
-    <path d="M39.5 27.5c.7 3.1 2.3 4.7 5.4 5.4-3.1.7-4.7 2.3-5.4 5.4-.7-3.1-2.3-4.7-5.4-5.4 3.1-.7 4.7-2.3 5.4-5.4Z"/>
-    <circle cx="52" cy="34" r="3.7"/>
-    <circle cx="52" cy="47" r="3.7"/>
+    <rect x="312" y="416" width="50" height="50" rx="12"/>
+    <rect x="448" y="416" width="50" height="50" rx="12"/>
+    <rect x="584" y="416" width="50" height="50" rx="12"/>
+    <rect x="312" y="552" width="50" height="50" rx="12"/>
+    <rect x="448" y="552" width="50" height="50" rx="12"/>
+    <rect x="584" y="552" width="50" height="50" rx="12"/>
+    <rect x="312" y="688" width="50" height="50" rx="12"/>
+    <rect x="448" y="688" width="50" height="50" rx="12"/>
+    <path d="M758 374c16 70 52 107 122 122-70 16-106 53-122 123-16-70-52-107-122-123 70-15 106-52 122-122Z"/>
+    <circle cx="882" cy="528" r="64"/>
+    <circle cx="880" cy="796" r="64"/>
   </g>
-  <circle cx="52" cy="34" r="1.45" fill="#f5f1ea"/>
-  <circle cx="52" cy="47" r="1.45" fill="#f5f1ea"/>
+  <circle cx="882" cy="528" r="28" fill="#fffaf2"/>
+  <circle cx="880" cy="796" r="28" fill="#fffaf2"/>
 </svg>
