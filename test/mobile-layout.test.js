@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const projectRoot = path.resolve(__dirname, '..');
 const footerCss = fs.readFileSync(path.join(projectRoot, 'public', 'footer.css'), 'utf8');
-const mobileCss = fs.readFileSync(path.join(projectRoot, 'public', 'mobile-layout-v2.css'), 'utf8');
+const mobileCss = fs.readFileSync(path.join(projectRoot, 'public', 'mobile-layout-v3.css'), 'utf8');
 
 test('la hoja responsive final se carga antes del tema y fuerza una sola columna móvil', () => {
   assert.match(footerCss, /^@import url\('\/mobile-layout-v3\.css'\);/);
