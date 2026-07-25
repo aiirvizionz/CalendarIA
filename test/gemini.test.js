@@ -124,7 +124,7 @@ test('clasifica y sanitiza errores de autenticación de Gemini con mensaje expon
   assert.match(error.message, /API key en Render/);
   assert.equal(error.provider.httpStatus, 403);
   assert.equal(error.provider.status, 'PERMISSION_DENIED');
-  assert.equal(error.provider.model, 'gemini-3.5-flash');
+  assert.equal(error.provider.model, expectedGeminiModel);
   assert.doesNotMatch(error.provider.message, /AIza/);
   assert.match(error.provider.message, /\[redacted-api-key\]/);
 });
