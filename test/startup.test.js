@@ -42,6 +42,12 @@ test('producción inicia sin proveedores externos y reporta estado degradado', a
   const port = 41000 + Math.floor(Math.random() * 10000);
   const env = {
     ...process.env,
+      GEMINI_API_KEY: '',
+      GOOGLE_API_KEY: '',
+      API_KEY_GEMINI: '',
+      GOOGLE_OAUTH_CLIENT_ID: '',
+      GOOGLE_AUTH_API_KEY: '',
+      GOOGLE_OAUTH_CLIENT_SECRET: '',
     NODE_ENV: 'production',
     PORT: String(port),
     APP_BASE_URL: `http://127.0.0.1:${port}`,
@@ -88,6 +94,12 @@ test('acepta temporalmente los nombres históricos de Gemini y Google Client ID'
     cwd: ROOT,
     env: {
       ...process.env,
+      GEMINI_API_KEY: '',
+      GOOGLE_API_KEY: '',
+      API_KEY_GEMINI: '',
+      GOOGLE_OAUTH_CLIENT_ID: '',
+      GOOGLE_AUTH_API_KEY: '',
+      GOOGLE_OAUTH_CLIENT_SECRET: '',
       NODE_ENV: 'production',
       SESSION_SECRET: 'test-session-secret-with-more-than-32-bytes-123456',
       API_KEY_GEMINI: 'legacy-gemini-key',
@@ -138,6 +150,12 @@ test('acepta GOOGLE_API_KEY como alias oficial de Gemini', () => {
     cwd: ROOT,
     env: {
       ...process.env,
+      GEMINI_API_KEY: '',
+      GOOGLE_API_KEY: '',
+      API_KEY_GEMINI: '',
+      GOOGLE_OAUTH_CLIENT_ID: '',
+      GOOGLE_AUTH_API_KEY: '',
+      GOOGLE_OAUTH_CLIENT_SECRET: '',
       NODE_ENV: 'production',
       SESSION_SECRET: 'test-session-secret-with-more-than-32-bytes-123456',
       GEMINI_API_KEY: '',

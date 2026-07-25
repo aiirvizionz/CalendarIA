@@ -2,6 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const expectedGeminiModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
 const { ValidationError } = require('../src/lib/event');
 const {
   EVENT_SCHEMA,
