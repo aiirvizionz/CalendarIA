@@ -11,13 +11,16 @@ const config = require('./src/config');
 const { ValidationError, validateEvent } = require('./src/lib/event');
 const { createRateLimiter } = require('./src/lib/rate-limit');
 const {
+  clearGoogleGrant,
   clearOAuthState,
   clearSession,
   createCsrfToken,
+  readGoogleGrant,
   readOAuthState,
   readSession,
   requireCsrf,
   requireSession,
+  setGoogleGrant,
   setOAuthState,
   setSession,
 } = require('./src/lib/session');
@@ -180,12 +183,16 @@ app.get('/api/session', (req, res) => {
 app.get('/api/auth/google/start', requireGoogleIntegration, (req, res, next) => {
   try {
     const authorization = createAuthorizationRequest();
+    const authorizationUrl = new URL(authorization.url);
+    if (readGoogleGrant(req)) {
+      authorizationUrl.searchParams.delete('prompt');
+    }
     setOAuthState(res, {
       state: authorization.state,
       verifier: authorization.verifier,
       expiresAt: authorization.expiresAt,
     });
-    return res.redirect(authorization.url);
+    return res.redirect(authorizationUrl.toString());
   } catch (error) {
     return next(error);
   }
@@ -193,6 +200,7 @@ app.get('/api/auth/google/start', requireGoogleIntegration, (req, res, next) => 
 
 app.get('/api/auth/google/callback', requireGoogleIntegration, async (req, res) => {
   const oauthState = readOAuthState(req);
+  const savedGrant = readGoogleGrant(req);
   clearOAuthState(res);
 
   try {
@@ -214,6 +222,9 @@ app.get('/api/auth/google/callback', requireGoogleIntegration, async (req, res) 
       throw error;
     }
 
+    const refreshToken = tokens.refresh_token
+      || (savedGrant?.sub === user.sub ? savedGrant.refreshToken : '');
+
     setSession(res, {
       user: {
         sub: user.sub,
@@ -222,10 +233,18 @@ app.get('/api/auth/google/callback', requireGoogleIntegration, async (req, res) 
         picture: user.picture || '',
       },
       accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token || '',
+      refreshToken,
       accessTokenExpiresAt: Date.now() + Number(tokens.expires_in || 3600) * 1000,
       csrfToken: createCsrfToken(),
     });
+
+    if (refreshToken) {
+      setGoogleGrant(res, {
+        sub: user.sub,
+        email: user.email,
+        refreshToken,
+      });
+    }
 
     return res.redirect('/?auth=success');
   } catch (error) {
@@ -236,9 +255,15 @@ app.get('/api/auth/google/callback', requireGoogleIntegration, async (req, res) 
   }
 });
 
-app.post('/api/auth/logout', requireSession, requireCsrf, async (req, res) => {
+app.post('/api/auth/logout', requireSession, requireCsrf, (req, res) => {
+  clearSession(req, res);
+  res.status(204).end();
+});
+
+app.post('/api/auth/google/disconnect', requireSession, requireCsrf, async (req, res) => {
   const token = req.session.refreshToken || req.session.accessToken;
   clearSession(req, res);
+  clearGoogleGrant(res);
   await revokeToken(token);
   res.status(204).end();
 });
