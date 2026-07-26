@@ -5,9 +5,11 @@ const config = require('../config');
 
 const SESSION_COOKIE = 'calendaria_session';
 const OAUTH_COOKIE = 'calendaria_oauth';
+const GOOGLE_GRANT_COOKIE = 'calendaria_google_grant';
 const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_SECONDS * 1000;
-const sessions = new Map();
+const GOOGLE_GRANT_MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
+const GOOGLE_GRANT_MAX_AGE_MS = GOOGLE_GRANT_MAX_AGE_SECONDS * 1000;
 
 function encode(value) {
   return Buffer.from(value).toString('base64url');
@@ -68,88 +70,82 @@ function cookie(name, value, options = {}) {
   return parts.join('; ');
 }
 
-function signSessionId(sessionId) {
-  return crypto.createHmac('sha256', config.sessionKey).update(sessionId).digest('base64url');
-}
-
-function serializeSessionId(sessionId) {
-  return `${sessionId}.${signSessionId(sessionId)}`;
-}
-
-function parseSessionId(value) {
-  if (!value || typeof value !== 'string') return '';
-  const separator = value.lastIndexOf('.');
-  if (separator < 1) return '';
-  const sessionId = value.slice(0, separator);
-  const receivedSignature = value.slice(separator + 1);
-  const expectedSignature = signSessionId(sessionId);
-  if (receivedSignature.length !== expectedSignature.length) return '';
-
-  const valid = crypto.timingSafeEqual(
-    Buffer.from(receivedSignature),
-    Buffer.from(expectedSignature),
-  );
-  return valid ? sessionId : '';
-}
-
-function sessionIdFromRequest(req) {
+function readEncryptedCookie(req, name) {
   const cookies = parseCookies(req.headers.cookie);
-  return parseSessionId(cookies[SESSION_COOKIE]);
+  return decrypt(cookies[name]);
+}
+
+function setEncryptedCookie(res, name, payload, options = {}) {
+  res.append('Set-Cookie', cookie(name, encrypt(payload), options));
+}
+
+function clearCookie(res, name, options = {}) {
+  res.append('Set-Cookie', cookie(name, '', { ...options, maxAge: 0 }));
 }
 
 function readSession(req) {
-  const sessionId = sessionIdFromRequest(req);
-  if (!sessionId) return null;
-
-  const session = sessions.get(sessionId);
+  const session = readEncryptedCookie(req, SESSION_COOKIE);
   if (!session || session.expiresAt <= Date.now() || !session.user?.sub || !session.csrfToken) {
-    sessions.delete(sessionId);
     return null;
   }
-
-  session.expiresAt = Date.now() + SESSION_MAX_AGE_MS;
   return session;
 }
 
 function setSession(res, session) {
-  const sessionId = session.sessionId && sessions.has(session.sessionId)
-    ? session.sessionId
-    : crypto.randomBytes(32).toString('base64url');
   const storedSession = {
     ...session,
-    sessionId,
     expiresAt: Date.now() + SESSION_MAX_AGE_MS,
   };
-  sessions.set(sessionId, storedSession);
-  res.append('Set-Cookie', cookie(SESSION_COOKIE, serializeSessionId(sessionId), {
+  setEncryptedCookie(res, SESSION_COOKIE, storedSession, {
     maxAge: SESSION_MAX_AGE_SECONDS,
-  }));
+  });
   return storedSession;
 }
 
-function clearSession(req, res) {
-  const sessionId = sessionIdFromRequest(req);
-  if (sessionId) sessions.delete(sessionId);
-  res.append('Set-Cookie', cookie(SESSION_COOKIE, '', { maxAge: 0 }));
+function clearSession(_req, res) {
+  clearCookie(res, SESSION_COOKIE);
 }
 
 function setOAuthState(res, payload) {
-  res.append('Set-Cookie', cookie(OAUTH_COOKIE, encrypt(payload), {
+  setEncryptedCookie(res, OAUTH_COOKIE, payload, {
     path: '/api/auth/google/callback',
     maxAge: 10 * 60,
-  }));
+  });
 }
 
 function readOAuthState(req) {
-  const cookies = parseCookies(req.headers.cookie);
-  return decrypt(cookies[OAUTH_COOKIE]);
+  return readEncryptedCookie(req, OAUTH_COOKIE);
 }
 
 function clearOAuthState(res) {
-  res.append('Set-Cookie', cookie(OAUTH_COOKIE, '', {
+  clearCookie(res, OAUTH_COOKIE, {
     path: '/api/auth/google/callback',
-    maxAge: 0,
-  }));
+  });
+}
+
+function readGoogleGrant(req) {
+  const grant = readEncryptedCookie(req, GOOGLE_GRANT_COOKIE);
+  if (!grant || grant.expiresAt <= Date.now() || !grant.sub || !grant.refreshToken) {
+    return null;
+  }
+  return grant;
+}
+
+function setGoogleGrant(res, grant) {
+  const storedGrant = {
+    sub: grant.sub,
+    email: grant.email || '',
+    refreshToken: grant.refreshToken,
+    expiresAt: Date.now() + GOOGLE_GRANT_MAX_AGE_MS,
+  };
+  setEncryptedCookie(res, GOOGLE_GRANT_COOKIE, storedGrant, {
+    maxAge: GOOGLE_GRANT_MAX_AGE_SECONDS,
+  });
+  return storedGrant;
+}
+
+function clearGoogleGrant(res) {
+  clearCookie(res, GOOGLE_GRANT_COOKIE);
 }
 
 function createCsrfToken() {
@@ -178,22 +174,17 @@ function requireCsrf(req, res, next) {
   return next();
 }
 
-const cleanup = setInterval(() => {
-  const now = Date.now();
-  for (const [sessionId, session] of sessions.entries()) {
-    if (session.expiresAt <= now) sessions.delete(sessionId);
-  }
-}, 60 * 60 * 1000);
-cleanup.unref();
-
 module.exports = {
+  clearGoogleGrant,
   clearOAuthState,
   clearSession,
   createCsrfToken,
+  readGoogleGrant,
   readOAuthState,
   readSession,
   requireCsrf,
   requireSession,
+  setGoogleGrant,
   setOAuthState,
   setSession,
 };
