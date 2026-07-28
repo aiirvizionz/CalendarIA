@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">CalendarIA — Agenda inteligente</title>
+  <desc id="desc">Vista previa social de CalendarIA con una interfaz oscura, el logotipo del proyecto y tarjetas de eventos.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#090a0d"/>
+      <stop offset="0.55" stop-color="#111318"/>
+      <stop offset="1" stop-color="#08090b"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8f5f1"/>
+      <stop offset="1" stop-color="#e9e4de"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#a7adff" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#a7adff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="22" stdDeviation="26" flood-color="#000" flood-opacity=".42"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="1040" cy="90" r="290" fill="url(#glow)"/>
+  <circle cx="120" cy="570" r="250" fill="url(#glow)" opacity=".42"/>
+  <rect x="24" y="24" width="1152" height="582" rx="28" fill="none" stroke="#fff" stroke-opacity=".09"/>
+
+  <g transform="translate(74 70)">
+    <rect width="88" height="88" rx="24" fill="#fffdf9"/>
+    <g transform="translate(11 10) scale(.066)">
+      <g fill="none" stroke="#0b0c0e" stroke-width="52" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M459 260v112M795 260v112"/>
+        <path d="M974 478v-39c0-66-49-108-113-108H392c-67 0-113 45-113 113v385c0 70 48 116 118 116h171c59 0 91-28 119-86 28-60 69-91 132-91h35"/>
+        <path d="M279 331h582"/>
+        <path d="M655 873c44-91 83-132 164-132h31c51 0 89-20 116-59"/>
+        <path d="M743 948v-19c0-45 35-78 80-78h83"/>
+      </g>
+      <g fill="#0b0c0e">
+        <rect x="395" y="502" width="49" height="49" rx="12"/><rect x="522" y="502" width="49" height="49" rx="12"/><rect x="649" y="502" width="49" height="49" rx="12"/>
+        <rect x="395" y="623" width="49" height="49" rx="12"/><rect x="522" y="623" width="49" height="49" rx="12"/><rect x="649" y="623" width="49" height="49" rx="12"/>
+        <rect x="395" y="744" width="49" height="49" rx="12"/><rect x="522" y="744" width="49" height="49" rx="12"/>
+        <path d="M847 462c12 45 36 69 81 81-45 12-69 36-81 81-12-45-36-69-81-81 45-12 69-36 81-81Z"/>
+        <circle cx="955" cy="654" r="54"/><circle cx="952" cy="865" r="54"/>
+      </g>
+      <circle cx="955" cy="654" r="22" fill="#fffdf9"/><circle cx="952" cy="865" r="22" fill="#fffdf9"/>
+    </g>
+  </g>
+
+  <text x="184" y="113" fill="#f7f4ef" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700">Calendar<tspan fill="#c8c9ff">IA</tspan></text>
+  <text x="76" y="238" fill="#f7f4ef" font-family="Arial, Helvetica, sans-serif" font-size="68" font-weight="700" letter-spacing="-2">Tu agenda,</text>
+  <text x="76" y="312" fill="#f7f4ef" font-family="Arial, Helvetica, sans-serif" font-size="68" font-weight="700" letter-spacing="-2">más inteligente.</text>
+  <text x="78" y="372" fill="#aaa9a6" font-family="Arial, Helvetica, sans-serif" font-size="28">Convierte texto, imágenes y voz en eventos</text>
+  <text x="78" y="410" fill="#aaa9a6" font-family="Arial, Helvetica, sans-serif" font-size="28">revisables para Google Calendar.</text>
+
+  <g transform="translate(76 470)">
+    <rect width="206" height="54" rx="27" fill="#f4f0eb"/>
+    <text x="103" y="35" text-anchor="middle" fill="#15161a" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Texto o imagen</text>
+    <rect x="220" width="116" height="54" rx="27" fill="#17191d" stroke="#fff" stroke-opacity=".14"/>
+    <text x="278" y="35" text-anchor="middle" fill="#f4f0eb" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Voz</text>
+  </g>
+
+  <g transform="translate(680 84) rotate(-2 220 230)" filter="url(#shadow)">
+    <rect width="438" height="462" rx="34" fill="url(#card)"/>
+    <rect x="24" y="24" width="390" height="68" rx="18" fill="#111316"/>
+    <text x="58" y="67" fill="#f5f1eb" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700">Tus próximos eventos</text>
+
+    <g transform="translate(28 118)">
+      <rect width="382" height="96" rx="21" fill="#f8f5f1" stroke="#1b1d21" stroke-opacity=".12"/>
+      <rect x="18" y="18" width="5" height="60" rx="3" fill="#17191d"/>
+      <text x="42" y="43" fill="#17191d" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">Examen de redes</text>
+      <text x="42" y="71" fill="#77767a" font-family="Arial, Helvetica, sans-serif" font-size="17">Mañana · 10:00 a.m.</text>
+      <rect x="275" y="25" width="80" height="34" rx="17" fill="#dfece7"/>
+      <text x="315" y="48" text-anchor="middle" fill="#267a60" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">Google</text>
+    </g>
+
+    <g transform="translate(28 229)">
+      <rect width="382" height="96" rx="21" fill="#f8f5f1" stroke="#1b1d21" stroke-opacity=".12"/>
+      <rect x="18" y="18" width="5" height="60" rx="3" fill="#6d65b8"/>
+      <text x="42" y="43" fill="#17191d" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">Clase de inglés</text>
+      <text x="42" y="71" fill="#77767a" font-family="Arial, Helvetica, sans-serif" font-size="17">Sábado · 12:00 p.m.</text>
+      <rect x="275" y="25" width="80" height="34" rx="17" fill="#dfece7"/>
+      <text x="315" y="48" text-anchor="middle" fill="#267a60" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">Google</text>
+    </g>
+
+    <g transform="translate(28 340)">
+      <rect width="382" height="90" rx="21" fill="#111316"/>
+      <text x="28" y="38" fill="#f5f1eb" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700">Analiza con Gemini</text>
+      <text x="28" y="66" fill="#aaa9a6" font-family="Arial, Helvetica, sans-serif" font-size="15">Revisa y confirma antes de guardar.</text>
+      <path d="M335 25c5 20 15 30 35 35-20 5-30 15-35 35-5-20-15-30-35-35 20-5 30-15 35-35Z" fill="#f5f1eb"/>
+    </g>
+  </g>
+</svg>
