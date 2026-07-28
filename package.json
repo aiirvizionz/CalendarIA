@@ -4,7 +4,7 @@
   "private": true,
   "description": "Agenda inteligente con Gemini y sincronización segura con Google Calendar.",
   "scripts": {
-    "start": "node server.js",
+    "start": "node scripts/patch-open-graph.js && node server.js",
     "check": "node scripts/check-syntax.js",
     "test": "node --test",
     "ci": "npm run check && npm test"
