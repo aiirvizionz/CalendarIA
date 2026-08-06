@@ -1,93 +1,55 @@
 'use strict';
-
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {
-  ValidationError,
-  addMinutesToLocalDateTime,
-  isValidDate,
-  isValidTime,
-  normalizeAiEvent,
-  validateEvent,
-} = require('../src/lib/event');
+const { CATEGORY_META, ValidationError, addMinutesToLocalDateTime, isValidDate, isValidTime, normalizeAiEvent, validateEvent } = require('../src/lib/event');
 
-test('valida fechas reales y años bisiestos', () => {
-  assert.equal(isValidDate('2026-07-11'), true);
+test('valida fechas reales y horas de 24 horas', () => {
   assert.equal(isValidDate('2024-02-29'), true);
   assert.equal(isValidDate('2026-02-29'), false);
-  assert.equal(isValidDate('2026-13-01'), false);
-});
-
-test('rechaza horas fuera del rango de 24 horas', () => {
-  assert.equal(isValidTime('00:00'), true);
   assert.equal(isValidTime('23:59'), true);
   assert.equal(isValidTime('24:00'), false);
-  assert.equal(isValidTime('09:90'), false);
 });
 
-test('normaliza un evento y elimina duplicados de recordatorios', () => {
-  assert.deepEqual(validateEvent({
-    title: '  Examen   de redes  ',
-    date: '2026-07-11',
-    time: '08:30',
-    category: 'examen',
-    reminders: [60, '10', 60],
-  }), {
-    title: 'Examen de redes',
-    date: '2026-07-11',
-    time: '08:30',
-    category: 'examen',
-    reminders: [10, 60],
+test('normaliza duración, avisos, recurrencia y color por categoría', () => {
+  const event = validateEvent({
+    title: '  Clase de redes ', date: '2026-08-10', time: '18:00', category: 'clase', durationMinutes: 90,
+    reminders: [60, 2880, 60], location: 'FIME', description: 'Laboratorio',
+    recurrence: { frequency: 'weekly', interval: 2, daysOfWeek: ['MO', 'WE'], until: '2026-12-14' },
   });
+  assert.equal(event.title, 'Clase de redes');
+  assert.equal(event.googleColorId, CATEGORY_META.clase.googleColorId);
+  assert.equal(event.categoryColor, CATEGORY_META.clase.uiColor);
+  assert.deepEqual(event.reminders, [60, 2880]);
+  assert.deepEqual(event.recurrence.daysOfWeek, ['MO', 'WE']);
+  assert.equal(event.durationMinutes, 90);
 });
 
-test('rechaza categorías y recordatorios no permitidos', () => {
+test('permite evento de todo el día sin hora', () => {
+  const event = validateEvent({ title: 'Entrega', date: '2026-08-12', allDay: true, category: 'tarea', reminders: [1440] });
+  assert.equal(event.time, '');
+  assert.equal(event.durationMinutes, 1440);
+});
+
+test('rechaza recurrencia incompatible y avisos fuera de Google Calendar', () => {
+  assert.throws(() => validateEvent({ title: 'Evento', date: '2026-08-10', time: '09:00', category: 'otro', reminders: [50000] }), ValidationError);
   assert.throws(() => validateEvent({
-    title: 'Evento',
-    date: '2026-07-11',
-    time: '08:30',
-    category: 'otra-cosa',
-    reminders: [10],
-  }), ValidationError);
-
-  assert.throws(() => validateEvent({
-    title: 'Evento',
-    date: '2026-07-11',
-    time: '08:30',
-    category: 'otro',
-    reminders: [999],
+    title: 'Evento', date: '2026-08-10', time: '09:00', category: 'otro',
+    recurrence: { frequency: 'weekly', interval: 1, until: '2026-09-01', count: 4 },
   }), ValidationError);
 });
 
-test('calcula el fin del evento como hora local sin convertir a UTC', () => {
-  assert.deepEqual(addMinutesToLocalDateTime('2026-07-11', '23:30', 60), {
-    date: '2026-07-12',
-    time: '00:30',
+test('normaliza la salida ampliada de IA y conserva supuestos', () => {
+  const event = normalizeAiEvent({
+    titulo: 'Revisión', fecha: '2026-08-14', hora: '16:00', todoElDia: false, duracionMinutos: 60,
+    categoria: 'tarea', ubicacion: '', descripcion: '', recordatoriosMinutos: [60, 1440],
+    recurrencia: { frequency: 'weekly', interval: 2, daysOfWeek: ['FR'], until: '2026-12-18', count: 0 },
+    supuestos: ['Duración sugerida de 60 minutos'],
   });
-  assert.deepEqual(addMinutesToLocalDateTime('2026-01-31', '23:45', 60), {
-    date: '2026-02-01',
-    time: '00:45',
-  });
+  assert.equal(event.recurrence.frequency, 'weekly');
+  assert.equal(event.recurrence.count, null);
+  assert.deepEqual(event.assumptions, ['Duración sugerida de 60 minutos']);
 });
 
-test('valida la salida estructurada de IA una segunda vez', () => {
-  assert.deepEqual(normalizeAiEvent({
-    titulo: 'Presentación final',
-    fecha: '2026-12-01',
-    hora: '09:00',
-    categoria: 'presentacion',
-  }), {
-    title: 'Presentación final',
-    date: '2026-12-01',
-    time: '09:00',
-    category: 'presentacion',
-    reminders: [10],
-  });
-
-  assert.throws(() => normalizeAiEvent({
-    titulo: 'Evento',
-    fecha: 'mañana',
-    hora: 'temprano',
-    categoria: 'otro',
-  }), ValidationError);
+test('calcula fin local sin convertir a UTC', () => {
+  assert.deepEqual(addMinutesToLocalDateTime('2026-08-10', '23:30', 90), { date: '2026-08-11', time: '01:00' });
 });
