@@ -102,7 +102,13 @@ test('rechaza una cookie de sesión manipulada', () => {
 
   const setCookie = cookieValue(response, 'calendaria_session');
   const [pair] = setCookie.split(';', 1);
-  const tampered = `${pair.slice(0, -1)}${pair.endsWith('A') ? 'B' : 'A'}`;
+  const separator = pair.indexOf('=');
+  const name = pair.slice(0, separator);
+  const encodedValue = pair.slice(separator + 1);
+  const [iv, tag, ciphertext] = decodeURIComponent(encodedValue).split('.');
+  const tamperedCiphertext = `${ciphertext.startsWith('A') ? 'B' : 'A'}${ciphertext.slice(1)}`;
+  const tamperedValue = encodeURIComponent(`${iv}.${tag}.${tamperedCiphertext}`);
+  const tampered = `${name}=${tamperedValue}`;
 
   assert.equal(readSession({ headers: { cookie: tampered } }), null);
 });
