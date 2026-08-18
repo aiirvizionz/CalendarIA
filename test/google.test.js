@@ -15,6 +15,7 @@ test('normaliza un evento con hora de Google Calendar', () => {
     summary: 'Examen de\nRedes',
     htmlLink: 'https://calendar.google.com/calendar/event?eid=abc',
     eventType: 'default',
+    colorId: '11',
     creator: { self: true },
     organizer: { self: true },
     start: {
@@ -37,6 +38,7 @@ test('normaliza un evento con hora de Google Calendar', () => {
     timeZone: 'America/Monterrey',
     htmlLink: 'https://calendar.google.com/calendar/event?eid=abc',
     eventType: 'default',
+    colorId: '11',
     reminders: [10, 60],
     useDefaultReminders: false,
     creatorSelf: true,
@@ -61,6 +63,7 @@ test('normaliza eventos de día completo y valores opcionales', () => {
     timeZone: '',
     htmlLink: '',
     eventType: 'default',
+    colorId: '',
     reminders: [],
     useDefaultReminders: true,
     creatorSelf: false,
