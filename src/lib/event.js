@@ -2,8 +2,9 @@
 
 const CATEGORIES = Object.freeze(['examen', 'estudio', 'social', 'presentacion', 'tarea', 'otro']);
 const ALLOWED_REMINDERS = Object.freeze([10, 60, 360, 1440, 10080]);
+const MAX_REMINDER_MINUTES = 40320;
+const MAX_REMINDERS = 5;
 const CATEGORY_SET = new Set(CATEGORIES);
-const REMINDER_SET = new Set(ALLOWED_REMINDERS);
 const TITLE_MAX_LENGTH = 120;
 
 function isValidDate(value) {
@@ -28,14 +29,16 @@ function normalizeTitle(value) {
 }
 
 function normalizeReminders(value) {
-  if (value == null) return [10];
+  if (value == null) return [];
   if (!Array.isArray(value)) throw new ValidationError('Los recordatorios deben enviarse como una lista');
 
-  const reminders = [...new Set(value.map(Number))]
-    .filter((minutes) => Number.isInteger(minutes) && REMINDER_SET.has(minutes))
-    .sort((a, b) => a - b);
-
-  if (!reminders.length) throw new ValidationError('Selecciona al menos un recordatorio válido');
+  const reminders = [...new Set(value.map(Number))].sort((a, b) => a - b);
+  if (reminders.length > MAX_REMINDERS) {
+    throw new ValidationError(`No puedes configurar más de ${MAX_REMINDERS} recordatorios`);
+  }
+  if (reminders.some((minutes) => !Number.isInteger(minutes) || minutes < 0 || minutes > MAX_REMINDER_MINUTES)) {
+    throw new ValidationError(`Cada recordatorio debe estar entre 0 y ${MAX_REMINDER_MINUTES} minutos`);
+  }
   return reminders;
 }
 
@@ -88,7 +91,7 @@ function normalizeAiEvent(input) {
     date: input.fecha,
     time: input.hora,
     category: input.categoria,
-    reminders: [10],
+    reminders: input.recordatorios,
   });
 }
 

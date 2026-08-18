@@ -17,8 +17,10 @@ test('usa un schema de salida compatible con el subconjunto documentado por Gemi
   const serialized = JSON.stringify(EVENT_SCHEMA);
   assert.equal(EVENT_SCHEMA.additionalProperties, false);
   assert.equal(EVENT_SCHEMA.properties.fecha.format, 'date');
+  assert.equal(EVENT_SCHEMA.properties.recordatorios.type, 'array');
+  assert.equal(EVENT_SCHEMA.properties.recordatorios.items.type, 'integer');
   assert.doesNotMatch(serialized, /"minLength"|"maxLength"|"pattern"/);
-  assert.deepEqual(EVENT_SCHEMA.required, ['titulo', 'fecha', 'hora', 'categoria']);
+  assert.deepEqual(EVENT_SCHEMA.required, ['titulo', 'fecha', 'hora', 'categoria', 'recordatorios']);
 });
 
 test('acepta texto dentro del límite de análisis', () => {
@@ -37,6 +39,15 @@ test('construye texto como un UserInputStep de Interactions API', () => {
     type: 'user_input',
     content: [{ type: 'text', text: 'Examen mañana a las 8' }],
   }]);
+});
+
+test('indica a Gemini que solo extraiga recordatorios pedidos explícitamente', () => {
+  const request = validateAnalyzeRequest({ text: 'Examen mañana, recuérdame 2 horas antes' });
+  const payload = buildInteractionRequest(request, 'America/Mexico_City');
+
+  assert.match(payload.system_instruction, /avísame, recuérdame, dime, notifícame/i);
+  assert.match(payload.system_instruction, /2 horas antes son 120/i);
+  assert.match(payload.system_instruction, /recordatorios como \[\]/i);
 });
 
 test('anida imagen y texto dentro del mismo UserInputStep', () => {

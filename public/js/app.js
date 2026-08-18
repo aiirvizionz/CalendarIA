@@ -19,12 +19,12 @@ const CATEGORY_LABELS = Object.freeze({
 });
 
 const GOOGLE_EVENT_COLORS = Object.freeze({
-  2: '#7ae7bf',
-  4: '#ff887c',
-  6: '#ffb878',
-  8: '#e1e1e1',
-  9: '#5484ed',
-  11: '#dc2127',
+  2: '#4fae8a',
+  4: '#c96862',
+  6: '#d98b3c',
+  8: '#8f949b',
+  9: '#426fc8',
+  11: '#b81f25',
 });
 
 const REMINDER_LABELS = Object.freeze({
@@ -57,6 +57,14 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
+
+function clearDefaultSelections() {
+  document.querySelectorAll('#categoryOptions input, [data-reminder-group="manual"] input, [data-reminder-group="review"] input')
+    .forEach((input) => {
+      input.checked = false;
+    });
+  $('reviewCategoryInput').selectedIndex = -1;
+}
 
 function purgeLegacyLocalEvents() {
   for (const key of ['calendaria_events_v2', 'ag_events']) {
@@ -107,19 +115,68 @@ function setButtonBusy(button, busy, busyLabel) {
 
 function selectedReminders(group) {
   const values = [...document.querySelectorAll(`[data-reminder-group="${group}"] input:checked`)]
-    .map((input) => Number(input.value));
-  return values.length ? values : [10];
+    .map((input) => Number(input.value))
+    .filter(Number.isInteger);
+  return [...new Set(values)].sort((a, b) => a - b);
 }
 
-function setSelectedReminders(group, reminders = [10]) {
-  const selected = new Set((Array.isArray(reminders) ? reminders : [10]).map(Number));
-  document.querySelectorAll(`[data-reminder-group="${group}"] input`).forEach((input) => {
-    input.checked = selected.has(Number(input.value));
+function setSelectedReminders(group, reminders = []) {
+  const container = document.querySelector(`[data-reminder-group="${group}"]`);
+  if (!container) return;
+
+  container.querySelectorAll('[data-dynamic-reminder="true"]').forEach((choice) => choice.remove());
+
+  const selected = new Set((Array.isArray(reminders) ? reminders : [])
+    .map(Number)
+    .filter((minutes) => Number.isInteger(minutes) && minutes >= 0));
+  const presetValues = new Set();
+
+  container.querySelectorAll('input').forEach((input) => {
+    const minutes = Number(input.value);
+    presetValues.add(minutes);
+    input.checked = selected.has(minutes);
   });
+
+  [...selected]
+    .filter((minutes) => !presetValues.has(minutes))
+    .sort((a, b) => a - b)
+    .forEach((minutes) => {
+      const choice = document.createElement('label');
+      choice.className = 'choice';
+      choice.dataset.dynamicReminder = 'true';
+
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = String(minutes);
+      input.checked = true;
+
+      const label = document.createElement('span');
+      label.textContent = reminderLabel(minutes);
+
+      choice.append(input, label);
+      container.appendChild(choice);
+    });
 }
 
 function reminderLabel(value) {
-  return REMINDER_LABELS[value] || `${value} min`;
+  const minutes = Number(value);
+  if (REMINDER_LABELS[minutes]) return REMINDER_LABELS[minutes];
+  if (minutes === 0) return 'Al iniciar';
+  if (Number.isInteger(minutes) && minutes > 0) {
+    if (minutes % 10080 === 0) {
+      const weeks = minutes / 10080;
+      return `${weeks} ${weeks === 1 ? 'semana' : 'semanas'}`;
+    }
+    if (minutes % 1440 === 0) {
+      const days = minutes / 1440;
+      return `${days} ${days === 1 ? 'día' : 'días'}`;
+    }
+    if (minutes % 60 === 0) {
+      const hours = minutes / 60;
+      return `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+    }
+  }
+  return `${minutes} min`;
 }
 
 function formatGoogleEventDate(event) {
@@ -450,8 +507,8 @@ function showReview(event) {
   $('reviewTitleInput').value = event.title || '';
   $('reviewDateInput').value = event.date || '';
   $('reviewTimeInput').value = event.time || '';
-  $('reviewCategoryInput').value = CATEGORY_LABELS[event.category] ? event.category : 'otro';
-  setSelectedReminders('review', event.reminders || [10]);
+  $('reviewCategoryInput').selectedIndex = -1;
+  setSelectedReminders('review', Array.isArray(event.reminders) ? event.reminders : []);
   $('panelManual').classList.add('is-hidden');
   $('panelAi').classList.add('is-hidden');
   $('panelAudio').classList.add('is-hidden');
@@ -693,6 +750,7 @@ function bindEvents() {
 
 async function initialize() {
   purgeLegacyLocalEvents();
+  clearDefaultSelections();
   $('manualDate').value = localDateValue();
   bindTabs();
   bindEvents();

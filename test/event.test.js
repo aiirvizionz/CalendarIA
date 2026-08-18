@@ -41,7 +41,25 @@ test('normaliza un evento y elimina duplicados de recordatorios', () => {
   });
 });
 
-test('rechaza categorías y recordatorios no permitidos', () => {
+test('permite eventos sin aviso y recordatorios personalizados', () => {
+  assert.deepEqual(validateEvent({
+    title: 'Evento sin aviso',
+    date: '2026-07-11',
+    time: '08:30',
+    category: 'otro',
+    reminders: [],
+  }).reminders, []);
+
+  assert.deepEqual(validateEvent({
+    title: 'Evento con aviso',
+    date: '2026-07-11',
+    time: '08:30',
+    category: 'otro',
+    reminders: [120],
+  }).reminders, [120]);
+});
+
+test('rechaza categorías inválidas y recordatorios fuera de los límites de Google', () => {
   assert.throws(() => validateEvent({
     title: 'Evento',
     date: '2026-07-11',
@@ -55,7 +73,15 @@ test('rechaza categorías y recordatorios no permitidos', () => {
     date: '2026-07-11',
     time: '08:30',
     category: 'otro',
-    reminders: [999],
+    reminders: [40321],
+  }), ValidationError);
+
+  assert.throws(() => validateEvent({
+    title: 'Evento',
+    date: '2026-07-11',
+    time: '08:30',
+    category: 'otro',
+    reminders: [10, 20, 30, 40, 50, 60],
   }), ValidationError);
 });
 
@@ -76,18 +102,28 @@ test('valida la salida estructurada de IA una segunda vez', () => {
     fecha: '2026-12-01',
     hora: '09:00',
     categoria: 'presentacion',
+    recordatorios: [120],
   }), {
     title: 'Presentación final',
     date: '2026-12-01',
     time: '09:00',
     category: 'presentacion',
-    reminders: [10],
+    reminders: [120],
   });
+
+  assert.deepEqual(normalizeAiEvent({
+    titulo: 'Presentación sin aviso',
+    fecha: '2026-12-01',
+    hora: '09:00',
+    categoria: 'presentacion',
+    recordatorios: [],
+  }).reminders, []);
 
   assert.throws(() => normalizeAiEvent({
     titulo: 'Evento',
     fecha: 'mañana',
     hora: 'temprano',
     categoria: 'otro',
+    recordatorios: [],
   }), ValidationError);
 });
