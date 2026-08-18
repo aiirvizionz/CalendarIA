@@ -228,6 +228,12 @@ function eventContentKey(event) {
   return `${normalizeEventTitle(event?.summary)}|${eventStartIdentity(event)}`;
 }
 
+function categoryColorIdFromDescription(description) {
+  const match = normalizeModelSafeText(description).match(/Categoría:\s*(examen|estudio|tarea|presentacion|social|otro)\b/i);
+  if (!match) return '';
+  return CATEGORY_COLOR_IDS[match[1].toLocaleLowerCase('es-MX')] || '';
+}
+
 function normalizeCalendarEvent(event, recurrence = null) {
   const start = event?.start || {};
   const reminders = Array.isArray(event?.reminders?.overrides)
@@ -236,6 +242,9 @@ function normalizeCalendarEvent(event, recurrence = null) {
       .filter((minutes) => Number.isInteger(minutes) && minutes >= 0)
     : [];
   const recurringEventId = typeof event?.recurringEventId === 'string' ? event.recurringEventId : '';
+  const colorId = typeof event?.colorId === 'string' && event.colorId
+    ? event.colorId
+    : categoryColorIdFromDescription(event?.description);
 
   return {
     id: String(event?.id || ''),
@@ -246,6 +255,7 @@ function normalizeCalendarEvent(event, recurrence = null) {
     timeZone: typeof start.timeZone === 'string' ? start.timeZone : '',
     htmlLink: typeof event?.htmlLink === 'string' ? event.htmlLink : '',
     eventType: typeof event?.eventType === 'string' ? event.eventType : 'default',
+    colorId,
     reminders,
     useDefaultReminders: Boolean(event?.reminders?.useDefault),
     creatorSelf: Boolean(event?.creator?.self),

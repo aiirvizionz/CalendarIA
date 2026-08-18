@@ -18,6 +18,15 @@ const CATEGORY_LABELS = Object.freeze({
   otro: 'Otro',
 });
 
+const GOOGLE_EVENT_COLORS = Object.freeze({
+  2: '#7ae7bf',
+  4: '#ff887c',
+  6: '#ffb878',
+  8: '#e1e1e1',
+  9: '#5484ed',
+  11: '#dc2127',
+});
+
 const REMINDER_LABELS = Object.freeze({
   10: '10 min',
   60: '1 hora',
@@ -297,6 +306,8 @@ function renderEvents() {
     const fragment = $('eventTemplate').content.cloneNode(true);
     const card = fragment.querySelector('.event-card');
     card.dataset.eventId = event.id;
+    const accentColor = GOOGLE_EVENT_COLORS[String(event.colorId || '')];
+    if (accentColor) fragment.querySelector('.event-accent').style.background = accentColor;
     fragment.querySelector('.event-title').textContent = event.title;
     fragment.querySelector('.event-date').textContent = formatGoogleEventDate(event);
     fragment.querySelector('.sync-badge').textContent = 'Google';
