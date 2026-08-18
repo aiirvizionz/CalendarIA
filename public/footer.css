@@ -175,3 +175,45 @@ body {
     justify-content: flex-start;
   }
 }
+
+.choice-grid-categories input[value="examen"]:checked + span,
+#reviewCategoryInput:has(option[value="examen"]:checked) {
+  color: #fff !important;
+  border-color: #dc2127 !important;
+  background: #dc2127 !important;
+}
+
+.choice-grid-categories input[value="estudio"]:checked + span,
+#reviewCategoryInput:has(option[value="estudio"]:checked) {
+  color: #15161a !important;
+  border-color: #7ae7bf !important;
+  background: #7ae7bf !important;
+}
+
+.choice-grid-categories input[value="tarea"]:checked + span,
+#reviewCategoryInput:has(option[value="tarea"]:checked) {
+  color: #15161a !important;
+  border-color: #ffb878 !important;
+  background: #ffb878 !important;
+}
+
+.choice-grid-categories input[value="presentacion"]:checked + span,
+#reviewCategoryInput:has(option[value="presentacion"]:checked) {
+  color: #fff !important;
+  border-color: #5484ed !important;
+  background: #5484ed !important;
+}
+
+.choice-grid-categories input[value="social"]:checked + span,
+#reviewCategoryInput:has(option[value="social"]:checked) {
+  color: #15161a !important;
+  border-color: #ff887c !important;
+  background: #ff887c !important;
+}
+
+.choice-grid-categories input[value="otro"]:checked + span,
+#reviewCategoryInput:has(option[value="otro"]:checked) {
+  color: #15161a !important;
+  border-color: #e1e1e1 !important;
+  background: #e1e1e1 !important;
+}

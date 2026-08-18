@@ -13,6 +13,14 @@ const OAUTH_SCOPES = ['openid', 'email', 'profile', 'https://www.googleapis.com/
 const DEFAULT_TIMEOUT_MS = 15000;
 const CALENDAR_PAGE_SIZE = 2500;
 const MAX_CALENDAR_EVENTS = 5000;
+const CATEGORY_COLOR_IDS = Object.freeze({
+  examen: '11',
+  estudio: '2',
+  tarea: '6',
+  presentacion: '9',
+  social: '4',
+  otro: '8',
+});
 
 function normalizeModelSafeText(value) {
   return String(value || '').replace(/[\u0000-\u001F\u007F]/g, ' ').trim();
@@ -150,6 +158,7 @@ function buildCalendarEvent(event, timeZone) {
   return {
     summary: event.title,
     description: `Categoría: ${event.category}\nCreado con CalendarIA.`,
+    colorId: CATEGORY_COLOR_IDS[event.category],
     start: { dateTime: `${event.date}T${event.time}:00`, timeZone },
     end: { dateTime: `${end.date}T${end.time}:00`, timeZone },
     reminders: {
