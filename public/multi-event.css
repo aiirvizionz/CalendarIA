@@ -230,6 +230,20 @@
   margin-top: 18px;
 }
 
+/* La categoría seleccionada conserva su punto de color, pero el fondo activo
+   siempre usa el tono neutro de CalendarIA. */
+.choice-grid-categories .choice input:checked + span {
+  color: #f7f3ed !important;
+  border-color: #111316 !important;
+  background: #111316 !important;
+}
+
+#reviewCategoryInput:has(option:checked) {
+  color: #f7f3ed !important;
+  border-color: #111316 !important;
+  background: #111316 !important;
+}
+
 @media (max-width: 720px) {
   .image-analysis-mode {
     padding: 14px;
