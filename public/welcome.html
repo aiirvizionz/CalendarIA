@@ -13,6 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/welcome.css">
+  <link rel="stylesheet" href="/unified-footer.css?v=1">
 </head>
 <body>
   <div class="welcome-ambient welcome-ambient-one" aria-hidden="true"></div>
@@ -188,14 +189,20 @@
     </section>
   </main>
 
-  <footer class="welcome-footer">
-    <div class="welcome-footer-brand"><img src="/assets/calendaria-logo.svg" alt=""><span>CalendarIA</span></div>
-    <div class="welcome-footer-links">
-      <a href="/">Aplicación</a>
-      <a href="/privacy.html">Privacidad</a>
-      <a href="https://github.com/aiirvizionz/CalendarIA" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+  <footer class="calendar-footer">
+    <div class="calendar-footer-inner">
+      <a class="calendar-footer-brand" href="/" aria-label="CalendarIA, ir a la aplicación">
+        <img src="/assets/calendaria-logo.svg" alt="">
+        <span>CalendarIA</span>
+      </a>
+      <nav class="calendar-footer-nav" aria-label="Navegación de CalendarIA">
+        <a class="calendar-footer-link" href="/">Aplicación</a>
+        <a class="calendar-footer-link" href="/welcome" aria-current="page">Bienvenida</a>
+        <a class="calendar-footer-link" href="/privacy.html">Privacidad</a>
+        <a class="calendar-footer-link" href="https://github.com/aiirvizionz/CalendarIA" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+      </nav>
+      <p class="calendar-footer-copy">© 2026 CalendarIA · David Alejandro Lopez Huerta</p>
     </div>
-    <p>© 2026 CalendarIA · David Alejandro Lopez Huerta</p>
   </footer>
 </body>
 </html>
