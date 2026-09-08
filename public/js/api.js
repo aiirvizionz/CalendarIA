@@ -2,6 +2,7 @@ import './category-loading-guard.js';
 import './event-categories-ui.js';
 import './event-categories-save.js';
 import './multi-event-ui.js';
+import './shared-footer.js';
 
 let csrfToken = '';
 
