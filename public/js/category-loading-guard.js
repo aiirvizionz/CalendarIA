@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 
 function categoriesReady() {
-  return Boolean(document.querySelector('#categoryOptions input[name="category"]'));
+  return Boolean(document.querySelector('#categoryOptions [data-event-type-choice="true"] input[name="category"]'));
 }
 
 function syncCategoryLoadingState() {
