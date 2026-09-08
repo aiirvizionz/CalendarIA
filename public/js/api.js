@@ -63,9 +63,17 @@ export async function logout() {
 }
 
 export async function analyzeEvent(input) {
+  // Resolve the current saved categories immediately before classification so
+  // Gemini uses their current names instead of any historical storage meaning.
+  const preferences = await request('/api/preferences/event-types');
+  const eventTypes = Array.isArray(preferences?.eventTypes) ? preferences.eventTypes : [];
+  if (!eventTypes.length) {
+    throw new Error('No se encontraron categorías guardadas para analizar el evento');
+  }
+
   return request('/api/ai/analyze', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, eventTypes }),
   });
 }
 
