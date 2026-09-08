@@ -1,4 +1,5 @@
 import './event-categories-ui.js';
+import './event-categories-save.js';
 
 let csrfToken = '';
 
