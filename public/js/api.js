@@ -1,4 +1,4 @@
-import './event-types-ui.js';
+import './event-categories-ui.js';
 
 let csrfToken = '';
 
