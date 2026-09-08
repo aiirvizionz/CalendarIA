@@ -4,7 +4,8 @@ const CATEGORIES = Object.freeze(['examen', 'estudio', 'social', 'presentacion',
 const ALLOWED_REMINDERS = Object.freeze([10, 60, 360, 1440, 10080]);
 const MAX_REMINDER_MINUTES = 40320;
 const MAX_REMINDERS = 5;
-const CATEGORY_SET = new Set(CATEGORIES);
+const CATEGORY_KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const CATEGORY_KEY_MAX_LENGTH = 80;
 const TITLE_MAX_LENGTH = 120;
 
 function isValidDate(value) {
@@ -26,6 +27,16 @@ function normalizeTitle(value) {
   if (!title) throw new ValidationError('El título es obligatorio');
   if (title.length > TITLE_MAX_LENGTH) throw new ValidationError(`El título no puede superar ${TITLE_MAX_LENGTH} caracteres`);
   return title;
+}
+
+function normalizeCategory(value) {
+  const category = String(value || '').trim();
+  if (!category
+    || category.length > CATEGORY_KEY_MAX_LENGTH
+    || !CATEGORY_KEY_PATTERN.test(category)) {
+    throw new ValidationError('La categoría no es válida');
+  }
+  return category;
 }
 
 function normalizeReminders(value) {
@@ -50,11 +61,10 @@ function validateEvent(input) {
   const title = normalizeTitle(input.title);
   const date = String(input.date || '');
   const time = String(input.time || '');
-  const category = String(input.category || '');
+  const category = normalizeCategory(input.category);
 
   if (!isValidDate(date)) throw new ValidationError('La fecha debe usar el formato YYYY-MM-DD y ser válida');
   if (!isValidTime(time)) throw new ValidationError('La hora debe usar el formato HH:MM entre 00:00 y 23:59');
-  if (!CATEGORY_SET.has(category)) throw new ValidationError('La categoría no es válida');
 
   return {
     title,

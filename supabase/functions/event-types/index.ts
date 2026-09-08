@@ -85,24 +85,36 @@ function nameKey(value: string) {
     .slice(0, 80);
 }
 
+function isValidKey(value: string) {
+  return value.length <= 80 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
+}
+
 function validateReplacement(value: unknown) {
   if (!Array.isArray(value) || value.length < 1 || value.length > 12) {
     throw new Error('INVALID_EVENT_TYPES');
   }
 
-  const seen = new Set<string>();
+  const seenKeys = new Set<string>();
+  const seenNames = new Set<string>();
   return value.map((entry, index) => {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error('INVALID_EVENT_TYPE');
     const item = entry as Record<string, unknown>;
     const name = String(item.name || '').replace(/\s+/g, ' ').trim();
-    const key = nameKey(name);
+    const normalizedName = nameKey(name);
+    const providedKey = String(item.key || '').trim();
+    if (providedKey && !isValidKey(providedKey)) throw new Error('INVALID_EVENT_TYPE_KEY');
+    const key = providedKey || normalizedName;
     const googleColorId = Number(item.googleColorId);
     const position = item.position == null ? index : Number(item.position);
 
-    if (!name || name.length > 40 || !key || seen.has(key)) throw new Error('INVALID_EVENT_TYPE_NAME');
+    if (!name || name.length > 40 || !normalizedName || seenNames.has(normalizedName)) {
+      throw new Error('INVALID_EVENT_TYPE_NAME');
+    }
+    if (!key || !isValidKey(key) || seenKeys.has(key)) throw new Error('INVALID_EVENT_TYPE_KEY');
     if (!Number.isInteger(googleColorId) || googleColorId < 1 || googleColorId > 11) throw new Error('INVALID_GOOGLE_COLOR');
     if (!Number.isInteger(position) || position < 0 || position > 99) throw new Error('INVALID_POSITION');
-    seen.add(key);
+    seenNames.add(normalizedName);
+    seenKeys.add(key);
 
     return { name, name_key: key, google_color_id: googleColorId, position };
   });

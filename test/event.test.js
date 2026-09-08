@@ -41,6 +41,16 @@ test('normaliza un evento y elimina duplicados de recordatorios', () => {
   });
 });
 
+test('permite categorías personalizadas con claves seguras', () => {
+  assert.equal(validateEvent({
+    title: 'Clase de inglés',
+    date: '2026-07-11',
+    time: '08:30',
+    category: 'clase-ingles',
+    reminders: [],
+  }).category, 'clase-ingles');
+});
+
 test('permite eventos sin aviso y recordatorios personalizados', () => {
   assert.deepEqual(validateEvent({
     title: 'Evento sin aviso',
@@ -59,14 +69,16 @@ test('permite eventos sin aviso y recordatorios personalizados', () => {
   }).reminders, [120]);
 });
 
-test('rechaza categorías inválidas y recordatorios fuera de los límites de Google', () => {
-  assert.throws(() => validateEvent({
-    title: 'Evento',
-    date: '2026-07-11',
-    time: '08:30',
-    category: 'otra-cosa',
-    reminders: [10],
-  }), ValidationError);
+test('rechaza claves de categoría inválidas y recordatorios fuera de los límites de Google', () => {
+  for (const category of ['Otra cosa', 'categoria!', '-categoria', 'categoria-', 'Áccento']) {
+    assert.throws(() => validateEvent({
+      title: 'Evento',
+      date: '2026-07-11',
+      time: '08:30',
+      category,
+      reminders: [10],
+    }), ValidationError);
+  }
 
   assert.throws(() => validateEvent({
     title: 'Evento',

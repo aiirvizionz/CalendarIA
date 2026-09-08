@@ -1,3 +1,5 @@
+import './event-types-ui.js';
+
 let csrfToken = '';
 
 function timeZone() {
