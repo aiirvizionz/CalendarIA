@@ -1,4 +1,3 @@
-import { analyzeEvent, createGoogleEvent } from './api.js';
 import { readImage } from './media.js';
 
 const GOOGLE_EVENT_COLORS = Object.freeze({
@@ -25,6 +24,16 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+async function analyzeWithApi(input) {
+  const { analyzeEvent } = await import('./api.js');
+  return analyzeEvent(input);
+}
+
+async function createWithApi(event) {
+  const { createGoogleEvent } = await import('./api.js');
+  return createGoogleEvent(event);
+}
+
 function showToast(message, type = 'info') {
   const region = $('toastRegion');
   if (!region) return;
@@ -44,9 +53,17 @@ function injectStyles() {
   if (document.querySelector('link[data-multi-event-styles]')) return;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = '/multi-event.css?v=1';
+  link.href = '/multi-event.css?v=2';
   link.dataset.multiEventStyles = 'true';
   document.head.appendChild(link);
+
+  if (!document.querySelector('link[data-multi-event-polish]')) {
+    const polish = document.createElement('link');
+    polish.rel = 'stylesheet';
+    polish.href = '/ux-polish.css?v=1';
+    polish.dataset.multiEventPolish = 'true';
+    document.head.appendChild(polish);
+  }
 }
 
 function createModeControl() {
@@ -59,13 +76,13 @@ function createModeControl() {
   control.className = 'image-analysis-mode is-hidden';
   control.innerHTML = `
     <div class="image-analysis-mode-copy">
-      <strong>¿Cuántos eventos quieres obtener?</strong>
-      <span>Elige cómo debe interpretar Gemini la imagen.</span>
+      <strong>Modo de análisis de imagen</strong>
+      <span>Elige si Gemini debe crear un evento o detectar varios.</span>
     </div>
     <div class="image-analysis-mode-buttons" role="group" aria-label="Cantidad de eventos a extraer de la imagen">
       <button id="singleImageEventButton" class="image-analysis-mode-button is-active" type="button" aria-pressed="true">
         <span class="image-analysis-mode-icon" aria-hidden="true">1</span>
-        <span><strong>Solo un evento</strong><small>Extrae el evento principal</small></span>
+        <span><strong>Un evento</strong><small>Extrae el evento principal</small></span>
       </button>
       <button id="multipleImageEventsButton" class="image-analysis-mode-button" type="button" aria-pressed="false">
         <span class="image-analysis-mode-icon" aria-hidden="true">≡</span>
@@ -333,7 +350,7 @@ async function analyzeMultipleEvents(event) {
   let image = null;
   try {
     image = await readImage(state.file);
-    const result = await analyzeEvent({
+    const result = await analyzeWithApi({
       mode: 'multiple',
       text: $('aiText')?.value.trim() || '',
       image: { mimeType: image.mimeType, data: image.data },
@@ -375,7 +392,7 @@ async function saveMultipleEvents() {
     const item = validated[index];
     if (button) button.textContent = `Guardando ${index + 1}/${validated.length}…`;
     try {
-      await createGoogleEvent(item.event);
+      await createWithApi(item.event);
       item.source.saved = true;
       item.source.include = false;
       savedCount += 1;
@@ -414,12 +431,12 @@ function bindImageTracking() {
   $('imageInput')?.addEventListener('change', (event) => {
     state.file = event.target.files?.[0] || null;
     setModeVisibility(Boolean(state.file));
-  });
+  }, { capture: true });
 
   $('dropZone')?.addEventListener('drop', (event) => {
     state.file = event.dataTransfer?.files?.[0] || null;
     setModeVisibility(Boolean(state.file));
-  });
+  }, { capture: true });
 
   $('removeImageButton')?.addEventListener('click', () => {
     state.file = null;
