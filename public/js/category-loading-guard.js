@@ -4,6 +4,24 @@ function categoriesReady() {
   return Boolean(document.querySelector('#categoryOptions [data-event-type-choice="true"] input[name="category"]'));
 }
 
+function clearInitialCategoryPlaceholders() {
+  const container = $('categoryOptions');
+  if (container && !categoriesReady()) {
+    container.replaceChildren();
+  }
+
+  const reviewSelect = $('reviewCategoryInput');
+  if (reviewSelect && !categoriesReady()) {
+    reviewSelect.replaceChildren();
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'Cargando categorías…';
+    option.selected = true;
+    reviewSelect.appendChild(option);
+    reviewSelect.disabled = true;
+  }
+}
+
 function syncCategoryLoadingState() {
   const container = $('categoryOptions');
   if (!container) return;
@@ -32,13 +50,14 @@ function initialize() {
   const container = $('categoryOptions');
   if (!container) return;
 
+  clearInitialCategoryPlaceholders();
   const observer = new MutationObserver(syncCategoryLoadingState);
   observer.observe(container, { childList: true, subtree: true });
   syncCategoryLoadingState();
 }
 
-if (document.readyState === 'loading') {
-  window.addEventListener('DOMContentLoaded', initialize, { once: true });
-} else {
+if ($('categoryOptions')) {
   initialize();
+} else {
+  window.addEventListener('DOMContentLoaded', initialize, { once: true });
 }
