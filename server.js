@@ -175,6 +175,11 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.get('/welcome', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  return res.sendFile(path.join(publicDir, 'welcome.html'));
+});
+
 app.get('/api/session', (req, res) => {
   const session = readSession(req);
   if (!session) {
