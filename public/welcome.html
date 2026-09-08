@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090a0c">
+  <meta name="description" content="Conoce CalendarIA: crea eventos de Google Calendar con texto, imágenes o voz de una forma simple y natural.">
+  <link rel="canonical" href="https://calendaria.onrender.com/welcome">
+  <title>Bienvenido a CalendarIA</title>
+  <link rel="icon" href="/assets/calendaria-logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/calendaria-logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/welcome.css">
+</head>
+<body>
+  <div class="welcome-ambient welcome-ambient-one" aria-hidden="true"></div>
+  <div class="welcome-ambient welcome-ambient-two" aria-hidden="true"></div>
+
+  <header class="welcome-header">
+    <a class="welcome-brand" href="/" aria-label="CalendarIA, ir a la aplicación">
+      <img src="/assets/calendaria-logo.svg" alt="">
+      <span>Calendar<span>IA</span></span>
+    </a>
+    <a class="welcome-header-action" href="/">Ir a CalendarIA <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <main>
+    <section class="welcome-hero" aria-labelledby="welcomeTitle">
+      <div class="welcome-hero-copy">
+        <span class="welcome-kicker"><span aria-hidden="true">✦</span> Tu agenda, más natural</span>
+        <h1 id="welcomeTitle">Organiza tu tiempo sin sentir que estás llenando un formulario.</h1>
+        <p class="welcome-hero-description">CalendarIA transforma lo que escribes, una captura o lo que dices en eventos listos para revisar y guardar en tu Google Calendar.</p>
+        <div class="welcome-hero-actions">
+          <a class="welcome-button welcome-button-primary" href="/">Comenzar ahora <span aria-hidden="true">→</span></a>
+          <a class="welcome-button welcome-button-secondary" href="#como-usarlo">Ver cómo funciona</a>
+        </div>
+        <p class="welcome-reassurance"><span class="welcome-reassurance-dot" aria-hidden="true"></span>Tú revisas cada evento antes de guardarlo.</p>
+      </div>
+
+      <div class="welcome-demo" aria-label="Ejemplo de uso de CalendarIA">
+        <div class="welcome-demo-window">
+          <div class="welcome-demo-topbar">
+            <div class="welcome-demo-brand-mini"><img src="/assets/calendaria-logo.svg" alt=""><span>CalendarIA</span></div>
+            <span class="welcome-demo-status">Vista previa</span>
+          </div>
+          <div class="welcome-demo-tabs" aria-hidden="true">
+            <span>Manual</span><span class="is-active">Texto o imagen</span><span>Voz</span>
+          </div>
+          <div class="welcome-demo-body">
+            <p class="welcome-demo-label">Describe tu evento</p>
+            <div class="welcome-demo-message">“Tengo examen de Redes el próximo martes a las 8:00 y avísame un día antes.”</div>
+            <div class="welcome-demo-arrow" aria-hidden="true">↓</div>
+            <div class="welcome-demo-result">
+              <span class="welcome-demo-result-label">CalendarIA lo prepara para ti</span>
+              <strong>Examen de Redes</strong>
+              <div class="welcome-demo-meta"><span>mar, 15 sep</span><span>8:00 a.m.</span></div>
+              <div class="welcome-demo-category"><i></i> Exámen</div>
+              <div class="welcome-demo-review">Revisar antes de guardar <span aria-hidden="true">✓</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="welcome-section welcome-intro" aria-labelledby="purposeTitle">
+      <div class="welcome-section-heading">
+        <span class="welcome-eyebrow">¿Para qué sirve?</span>
+        <h2 id="purposeTitle">Menos pasos entre una idea y tu calendario.</h2>
+        <p>En lugar de capturar cada dato por separado, puedes contarle a CalendarIA lo que necesitas agendar de la forma que te resulte más cómoda.</p>
+      </div>
+      <div class="welcome-capability-grid">
+        <article class="welcome-capability-card">
+          <span class="welcome-capability-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="m4 20 4.2-1 10.6-10.6a2 2 0 0 0 0-2.8l-.4-.4a2 2 0 0 0-2.8 0L5 15.8 4 20Zm10.2-13.2 3 3M4 4h6"/></svg>
+          </span>
+          <h3>Manual</h3>
+          <p>Cuando ya sabes exactamente qué quieres guardar, captura fecha, hora, categoría y recordatorios.</p>
+        </article>
+        <article class="welcome-capability-card is-featured">
+          <span class="welcome-capability-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m6 16 4-4 3 3 2-2 3 3M8 9h.01"/></svg>
+          </span>
+          <h3>Texto o imagen</h3>
+          <p>Escribe como hablarías normalmente o sube una captura. Si la imagen tiene varias fechas, puedes obtener múltiples eventos.</p>
+        </article>
+        <article class="welcome-capability-card">
+          <span class="welcome-capability-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg>
+          </span>
+          <h3>Voz</h3>
+          <p>Di lo que necesitas agendar y CalendarIA preparará el evento para que lo revises antes de guardarlo.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="como-usarlo" class="welcome-section welcome-how" aria-labelledby="howTitle">
+      <div class="welcome-section-heading welcome-section-heading-center">
+        <span class="welcome-eyebrow">Cómo usar CalendarIA</span>
+        <h2 id="howTitle">Cuatro pasos y listo.</h2>
+        <p>No necesitas aprender comandos especiales. Usa palabras normales y mantén el control antes de que algo llegue a tu calendario.</p>
+      </div>
+
+      <div class="welcome-steps">
+        <article class="welcome-step">
+          <span class="welcome-step-number">01</span>
+          <div class="welcome-step-icon" aria-hidden="true">G</div>
+          <h3>Conecta Google</h3>
+          <p>Inicia sesión para que CalendarIA pueda mostrar y guardar eventos en tu calendario.</p>
+        </article>
+        <article class="welcome-step">
+          <span class="welcome-step-number">02</span>
+          <div class="welcome-step-icon" aria-hidden="true">✦</div>
+          <h3>Cuéntale qué necesitas</h3>
+          <p>Elige Manual, Texto o imagen, o Voz. Puedes ser tan natural como “reunión el viernes a las 4”.</p>
+        </article>
+        <article class="welcome-step">
+          <span class="welcome-step-number">03</span>
+          <div class="welcome-step-icon" aria-hidden="true">✓</div>
+          <h3>Revisa el resultado</h3>
+          <p>Comprueba título, fecha, hora, categoría y avisos. Si algo no quedó como querías, lo puedes editar.</p>
+        </article>
+        <article class="welcome-step">
+          <span class="welcome-step-number">04</span>
+          <div class="welcome-step-icon" aria-hidden="true">↗</div>
+          <h3>Guárdalo</h3>
+          <p>Confirma y el evento aparecerá en Google Calendar con la categoría, color y recordatorios elegidos.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="welcome-section welcome-examples" aria-labelledby="examplesTitle">
+      <div class="welcome-section-heading">
+        <span class="welcome-eyebrow">Ideas para empezar</span>
+        <h2 id="examplesTitle">Puedes decirlo así de simple.</h2>
+      </div>
+      <div class="welcome-example-grid">
+        <article class="welcome-example-card">
+          <span class="welcome-example-tag">Texto</span>
+          <blockquote>“Tengo reunión con el equipo el jueves a las 3 y recuérdame una hora antes.”</blockquote>
+          <div class="welcome-example-output"><span>→</span><p><strong>Reunión con el equipo</strong><br>Jueves · 3:00 p.m. · aviso 1 hora antes</p></div>
+        </article>
+        <article class="welcome-example-card">
+          <span class="welcome-example-tag">Imagen</span>
+          <blockquote>Sube una tabla con fechas límite de tus materias y elige <strong>Múltiples eventos</strong>.</blockquote>
+          <div class="welcome-example-output"><span>→</span><p><strong>Una revisión por cada fecha</strong><br>Decide cuáles guardar y qué categoría usar.</p></div>
+        </article>
+        <article class="welcome-example-card">
+          <span class="welcome-example-tag">Voz</span>
+          <blockquote>“Agéndame el gimnasio mañana a las siete de la tarde.”</blockquote>
+          <div class="welcome-example-output"><span>→</span><p><strong>Gimnasio</strong><br>Mañana · 7:00 p.m. · listo para revisar</p></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="welcome-section welcome-categories" aria-labelledby="categoriesTitle">
+      <div class="welcome-categories-copy">
+        <span class="welcome-eyebrow">Hazlo tuyo</span>
+        <h2 id="categoriesTitle">Tus categorías, tus colores, tu forma de organizarte.</h2>
+        <p>Puedes crear categorías como Universidad, Trabajo, Gym o Cumpleaños, elegir su color y ordenarlas como prefieras. CalendarIA las tendrá en cuenta cuando prepare tus eventos.</p>
+      </div>
+      <div class="welcome-category-preview" aria-label="Ejemplo de categorías personalizadas">
+        <span><i class="category-red"></i>Exámen</span>
+        <span><i class="category-green"></i>Tarea</span>
+        <span class="is-selected"><i class="category-blue"></i>Reunión</span>
+        <span><i class="category-mint"></i>Proyecto</span>
+      </div>
+    </section>
+
+    <section class="welcome-section welcome-control" aria-labelledby="controlTitle">
+      <div class="welcome-control-card">
+        <div class="welcome-control-icon" aria-hidden="true">✓</div>
+        <div>
+          <span class="welcome-eyebrow">Siempre tienes la última palabra</span>
+          <h2 id="controlTitle">CalendarIA propone. Tú confirmas.</h2>
+          <p>Los eventos generados con IA pasan por una revisión antes de guardarse. Así puedes corregir cualquier detalle y decidir qué termina realmente en tu agenda.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="welcome-final" aria-labelledby="readyTitle">
+      <img src="/assets/calendaria-logo.svg" alt="" class="welcome-final-logo">
+      <span class="welcome-eyebrow">Todo listo</span>
+      <h2 id="readyTitle">Tu próxima actividad puede estar en el calendario en segundos.</h2>
+      <p>Empieza con algo sencillo: una tarea, una reunión o esa fecha que no quieres olvidar.</p>
+      <a class="welcome-button welcome-button-primary welcome-button-large" href="/">Abrir CalendarIA <span aria-hidden="true">→</span></a>
+    </section>
+  </main>
+
+  <footer class="welcome-footer">
+    <div class="welcome-footer-brand"><img src="/assets/calendaria-logo.svg" alt=""><span>CalendarIA</span></div>
+    <div class="welcome-footer-links">
+      <a href="/">Aplicación</a>
+      <a href="/privacy.html">Privacidad</a>
+      <a href="https://github.com/aiirvizionz/CalendarIA" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+    </div>
+    <p>© 2026 CalendarIA · David Alejandro Lopez Huerta</p>
+  </footer>
+</body>
+</html>
