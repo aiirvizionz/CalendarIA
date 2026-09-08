@@ -1,5 +1,7 @@
+import './category-loading-guard.js';
 import './event-categories-ui.js';
 import './event-categories-save.js';
+import './multi-event-ui.js';
 
 let csrfToken = '';
 
@@ -103,11 +105,5 @@ export async function updateGoogleEvent(googleEventId, event) {
 export async function deleteGoogleEvent(googleEventId) {
   return request(`/api/calendar/events/${encodeURIComponent(googleEventId)}`, {
     method: 'DELETE',
-  });
-}
-
-if (typeof document !== 'undefined') {
-  import('./multi-event-ui.js').catch((error) => {
-    console.error('No se pudo cargar la interfaz de múltiples eventos', error);
   });
 }
