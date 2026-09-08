@@ -36,6 +36,11 @@ const {
   revokeToken,
   updateCalendarEvent,
 } = require('./src/services/google');
+const {
+  listEventTypes,
+  replaceEventTypes,
+  resolveEventTypeColor,
+} = require('./src/services/supabase');
 
 const app = express();
 const publicDir = path.join(__dirname, 'public');
@@ -95,6 +100,17 @@ function requireIntegration(name) {
       },
     });
   };
+}
+
+function requireSupabase(req, res, next) {
+  if (config.supabaseUrl) return next();
+  return res.status(503).json({
+    error: {
+      code: 'SUPABASE_NOT_CONFIGURED',
+      message: 'Supabase no está configurado en el servidor',
+      requestId: req.requestId,
+    },
+  });
 }
 
 function getTimeZone(req) {
@@ -286,6 +302,41 @@ app.post(
 );
 
 app.get(
+  '/api/preferences/event-types',
+  requireSession,
+  requireGoogleIntegration,
+  requireSupabase,
+  calendarUserLimiter,
+  async (req, res, next) => {
+    try {
+      const accessToken = await googleContext(req, res);
+      const eventTypes = await listEventTypes(accessToken);
+      return res.json({ eventTypes });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+
+app.put(
+  '/api/preferences/event-types',
+  requireSession,
+  requireCsrf,
+  requireGoogleIntegration,
+  requireSupabase,
+  calendarUserLimiter,
+  async (req, res, next) => {
+    try {
+      const accessToken = await googleContext(req, res);
+      const eventTypes = await replaceEventTypes(accessToken, req.body?.eventTypes);
+      return res.json({ eventTypes });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+
+app.get(
   '/api/calendar/events',
   requireSession,
   requireGoogleIntegration,
@@ -312,7 +363,8 @@ app.post(
       const event = validateEvent(req.body);
       const timeZone = getTimeZone(req);
       const accessToken = await googleContext(req, res);
-      const result = await createCalendarEvent(accessToken, event, timeZone);
+      const googleColorId = await resolveEventTypeColor(accessToken, event.category);
+      const result = await createCalendarEvent(accessToken, { ...event, googleColorId }, timeZone);
       return res.status(result.duplicate ? 200 : 201).json({
         googleEventId: result.event.id,
         htmlLink: result.event.htmlLink || '',
@@ -335,7 +387,8 @@ app.patch(
       const event = validateEvent(req.body);
       const timeZone = getTimeZone(req);
       const accessToken = await googleContext(req, res);
-      const updated = await updateCalendarEvent(accessToken, req.params.eventId, event, timeZone);
+      const googleColorId = await resolveEventTypeColor(accessToken, event.category);
+      const updated = await updateCalendarEvent(accessToken, req.params.eventId, { ...event, googleColorId }, timeZone);
       return res.json({
         googleEventId: updated.id,
         htmlLink: updated.htmlLink || '',
@@ -425,6 +478,9 @@ const server = app.listen(config.port, () => {
   }
   if (!config.integrations.google) {
     console.warn('Google OAuth no configurado: define GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET.');
+  }
+  if (!config.supabaseUrl) {
+    console.warn('Supabase no configurado: define SUPABASE_URL para preferencias persistentes.');
   }
 });
 

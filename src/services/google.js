@@ -158,7 +158,7 @@ function buildCalendarEvent(event, timeZone) {
   return {
     summary: event.title,
     description: `Categoría: ${event.category}\nCreado con CalendarIA.`,
-    colorId: CATEGORY_COLOR_IDS[event.category],
+    colorId: String(event.googleColorId || CATEGORY_COLOR_IDS[event.category] || ''),
     start: { dateTime: `${event.date}T${event.time}:00`, timeZone },
     end: { dateTime: `${end.date}T${end.time}:00`, timeZone },
     reminders: {

@@ -32,6 +32,7 @@ if (Buffer.byteLength(sessionSecret, 'utf8') < 32) {
 const geminiApiKey = readEnv('GEMINI_API_KEY', 'GOOGLE_API_KEY', 'API_KEY_GEMINI');
 const googleClientId = readEnv('GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_AUTH_API_KEY');
 const googleClientSecret = readEnv('GOOGLE_OAUTH_CLIENT_SECRET');
+const supabaseUrl = readEnv('SUPABASE_URL');
 
 const integrations = Object.freeze({
   gemini: Boolean(geminiApiKey),
@@ -47,6 +48,7 @@ const config = Object.freeze({
   geminiModel: readEnv('GEMINI_MODEL') || 'gemini-3.5-flash',
   googleClientId,
   googleClientSecret,
+  supabaseUrl: supabaseUrl ? normalizeBaseUrl(supabaseUrl) : '',
   integrations,
   sessionSecret,
   sessionKey: crypto.createHash('sha256').update(sessionSecret).digest(),

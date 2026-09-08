@@ -16,6 +16,8 @@ services:
         value: production
       - key: APP_BASE_URL
         value: https://calendaria.onrender.com
+      - key: SUPABASE_URL
+        value: https://synuwdoinjjcihyzfvon.supabase.co
       - key: GEMINI_MODEL
         value: gemini-3.5-flash
       - key: GEMINI_API_KEY

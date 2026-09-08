@@ -1,0 +1,4 @@
+project_id = "synuwdoinjjcihyzfvon"
+
+[functions.event-types]
+verify_jwt = false
