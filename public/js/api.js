@@ -62,19 +62,24 @@ export async function logout() {
   csrfToken = '';
 }
 
+export async function listEventTypes() {
+  return request('/api/preferences/event-types');
+}
+
 export async function analyzeEvent(input) {
   // Resolve the current saved categories immediately before classification so
   // Gemini uses their current names instead of any historical storage meaning.
-  const preferences = await request('/api/preferences/event-types');
+  const preferences = await listEventTypes();
   const eventTypes = Array.isArray(preferences?.eventTypes) ? preferences.eventTypes : [];
   if (!eventTypes.length) {
     throw new Error('No se encontraron categorías guardadas para analizar el evento');
   }
 
-  return request('/api/ai/analyze', {
+  const result = await request('/api/ai/analyze', {
     method: 'POST',
     body: JSON.stringify({ ...input, eventTypes }),
   });
+  return { ...result, eventTypes };
 }
 
 export async function listGoogleEvents() {
@@ -98,5 +103,11 @@ export async function updateGoogleEvent(googleEventId, event) {
 export async function deleteGoogleEvent(googleEventId) {
   return request(`/api/calendar/events/${encodeURIComponent(googleEventId)}`, {
     method: 'DELETE',
+  });
+}
+
+if (typeof document !== 'undefined') {
+  import('./multi-event-ui.js').catch((error) => {
+    console.error('No se pudo cargar la interfaz de múltiples eventos', error);
   });
 }
