@@ -6,10 +6,12 @@ const expectedGeminiModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
 const { ValidationError } = require('../src/lib/event');
 const {
   EVENT_SCHEMA,
+  buildCategoryContext,
   buildInteractionRequest,
   createProviderError,
   extractInteractionText,
   isRetryableStatus,
+  normalizeAiEventForCategories,
   validateAnalyzeRequest,
 } = require('../src/services/gemini');
 
@@ -48,6 +50,53 @@ test('indica a Gemini que solo extraiga recordatorios pedidos explícitamente', 
   assert.match(payload.system_instruction, /avísame, recuérdame, dime, notifícame/i);
   assert.match(payload.system_instruction, /2 horas antes son 120/i);
   assert.match(payload.system_instruction, /recordatorios como \[\]/i);
+});
+
+test('Gemini clasifica por nombres actuales y no por claves históricas', () => {
+  const eventTypes = [
+    { name: 'Tareas', key: 'examen', googleColorId: 2, position: 0 },
+    { name: 'Exámen', key: 'examen-2', googleColorId: 11, position: 1 },
+    { name: 'Reunión', key: 'reunion', googleColorId: 5, position: 2 },
+  ];
+  const request = validateAnalyzeRequest({ text: 'Tengo un examen de redes mañana' });
+  const payload = buildInteractionRequest(request, 'America/Mexico_City', eventTypes);
+
+  assert.deepEqual(payload.response_format.schema.properties.categoria.enum, [
+    'categoria_1', 'categoria_2', 'categoria_3',
+  ]);
+  assert.match(payload.system_instruction, /"nombre":"Tareas"/);
+  assert.match(payload.system_instruction, /"nombre":"Exámen"/);
+  assert.match(payload.system_instruction, /"nombre":"Reunión"/);
+  assert.doesNotMatch(payload.system_instruction, /examen-2/);
+  assert.doesNotMatch(payload.system_instruction, /"key"/);
+});
+
+test('traduce el token opaco a la clave real sin cambiar la categoría actual', () => {
+  const eventTypes = [
+    { name: 'Tareas', key: 'examen', googleColorId: 2, position: 0 },
+    { name: 'Exámen', key: 'examen-2', googleColorId: 11, position: 1 },
+    { name: 'Reunión', key: 'reunion', googleColorId: 5, position: 2 },
+  ];
+
+  const context = buildCategoryContext(eventTypes);
+  assert.equal(context.categories[0].name, 'Tareas');
+  assert.equal(context.categories[0].key, 'examen');
+  assert.equal(context.categories[1].name, 'Exámen');
+  assert.equal(context.categories[1].key, 'examen-2');
+
+  assert.deepEqual(normalizeAiEventForCategories({
+    titulo: 'Examen de redes',
+    fecha: '2026-09-08',
+    hora: '09:00',
+    categoria: 'categoria_2',
+    recordatorios: [],
+  }, eventTypes), {
+    title: 'Examen de redes',
+    date: '2026-09-08',
+    time: '09:00',
+    category: 'examen-2',
+    reminders: [],
+  });
 });
 
 test('anida imagen y texto dentro del mismo UserInputStep', () => {
