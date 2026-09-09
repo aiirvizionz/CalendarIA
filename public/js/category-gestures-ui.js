@@ -50,7 +50,8 @@ function bindSwipe(row, content, nativeDelete, deleteButton) {
 
   content.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    if (event.target.closest('input, button, select, textarea, a, .event-category-drag-handle, .event-category-color-trigger')) return;
+    if (event.target.closest('button, select, textarea, a, .event-category-drag-handle, .event-category-color-trigger')) return;
+    if (event.pointerType === 'mouse' && event.target.closest('input')) return;
 
     closeOpenRows(row);
     gesture = {
