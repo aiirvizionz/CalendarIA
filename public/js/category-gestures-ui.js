@@ -5,7 +5,7 @@ function addStylesheet() {
   if (document.querySelector('link[data-category-gestures-styles]')) return;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = '/category-gestures.css?v=2';
+  link.href = '/category-gestures.css?v=3';
   link.dataset.categoryGesturesStyles = 'true';
   document.head.appendChild(link);
 }
