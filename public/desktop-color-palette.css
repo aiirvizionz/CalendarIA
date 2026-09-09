@@ -1,0 +1,88 @@
+/* Desktop-only compact color palette. Mobile keeps the existing picker. */
+@media (min-width: 901px) {
+  .event-category-color-panel {
+    width: min(100%, 390px);
+  }
+
+  .event-category-color-header p {
+    display: none;
+  }
+
+  .event-category-color-options {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    max-height: none;
+    padding: 18px 20px 14px;
+    overflow: visible;
+  }
+
+  .event-category-color-option {
+    position: relative;
+    min-height: 0;
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border-radius: 999px;
+    background: transparent !important;
+  }
+
+  .event-category-color-option-swatch {
+    width: 34px;
+    height: 34px;
+    border: 0;
+    box-shadow: none;
+    transition: transform 140ms ease, box-shadow 140ms ease;
+  }
+
+  .event-category-color-option:hover .event-category-color-option-swatch {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--category-color) 18%, transparent);
+  }
+
+  .event-category-color-option.is-selected .event-category-color-option-swatch {
+    box-shadow: 0 0 0 3px #f8f5f1, 0 0 0 6px #111316;
+  }
+
+  .event-category-color-option-label,
+  .event-category-color-option-check {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .event-category-color-desktop-current {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 0 16px 16px;
+    min-height: 48px;
+    border-radius: 14px;
+    background: #dedbd6;
+    color: #3c3f45;
+    font-size: .88rem;
+    font-weight: 700;
+  }
+
+  .event-category-color-desktop-current::before {
+    content: '✓';
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--selected-color, #5484ed);
+    color: #111316;
+    font-size: .75rem;
+    font-weight: 900;
+  }
+}
+
+@media (max-width: 900px) {
+  .event-category-color-desktop-current { display: none !important; }
+}

@@ -4,6 +4,15 @@ import './event-categories-save.js';
 import './multi-event-ui.js';
 import './shared-footer.js';
 
+// Progressive UI enhancements. They are intentionally not awaited so a visual
+// enhancement can never prevent the main CalendarIA application from starting.
+void import('./events-view-ui.js?v=2').catch((error) => {
+  console.error('events_view_enhancement_failed', error);
+});
+void import('./category-gestures-ui.js?v=2').catch((error) => {
+  console.error('category_gestures_enhancement_failed', error);
+});
+
 let csrfToken = '';
 
 function timeZone() {
