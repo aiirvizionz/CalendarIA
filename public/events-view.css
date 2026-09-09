@@ -34,28 +34,46 @@
 .events-card .delete-event:hover { color: #b94049 !important; background: rgba(185, 64, 73, 0.10) !important; }
 
 .events-heading { gap: 14px; }
-.events-heading-actions { flex-wrap: wrap; justify-content: flex-end; }
+.events-heading-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .events-view-switch {
-  display: inline-grid;
-  grid-template-columns: 1fr 1fr;
+  display: inline-flex;
+  flex: none;
   gap: 3px;
   padding: 3px;
   border: 1px solid rgba(20,21,24,.12);
-  border-radius: 11px;
+  border-radius: 12px;
   background: #e8e4de;
 }
 .events-view-button {
-  min-height: 32px;
-  padding: 6px 10px;
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 9px;
   background: transparent;
   color: #74767b;
-  font: inherit;
-  font-size: .7rem;
-  font-weight: 700;
   cursor: pointer;
-  transition: color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  transition: color 140ms ease, background 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+.events-view-button svg {
+  width: 19px;
+  height: 19px;
+  pointer-events: none;
+}
+.events-view-button:hover:not(.is-active) {
+  color: #36383d;
+  background: rgba(255,255,255,.42);
+}
+.events-view-button:active { transform: translateY(1px); }
+.events-view-button:focus-visible {
+  outline: 2px solid #111316;
+  outline-offset: 2px;
 }
 .events-view-button.is-active {
   background: #111316;
@@ -169,8 +187,20 @@
 @media (max-width: 620px) {
   .events-heading { align-items: flex-start; }
   .events-heading-actions { gap: 6px; }
-  .events-view-switch { width: 100%; order: 3; margin-top: 4px; }
-  .events-view-button { min-height: 36px; }
+  .events-view-switch {
+    width: auto;
+    order: initial;
+    margin-top: 0;
+  }
+  .events-view-button {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+  }
+  .events-view-button svg {
+    width: 18px;
+    height: 18px;
+  }
   .events-calendar-grid { gap: 2px; padding-inline: 5px; }
   .events-calendar-weekdays { padding-inline: 5px; }
   .events-calendar-day { min-height: 38px; font-size: .68rem; }
