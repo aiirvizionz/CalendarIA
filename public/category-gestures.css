@@ -4,6 +4,9 @@
 
 .event-category-row.event-category-compact-row {
   position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
   overflow: hidden;
   padding: 0;
   border: 0;
@@ -24,12 +27,18 @@
   inset: 0 0 0 auto;
   z-index: 1;
   width: 104px;
+  height: 100%;
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
   border-radius: 14px;
   overflow: hidden;
   background: #c83f4a;
+  pointer-events: none;
+}
+
+.event-category-compact-row.is-swipe-open .category-delete-layer {
+  pointer-events: auto;
 }
 
 .category-delete-action {
@@ -61,6 +70,9 @@
 .category-swipe-content {
   position: relative;
   z-index: 2;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 42px;
   align-items: center;
@@ -89,10 +101,11 @@
 }
 
 .event-category-compact-row .event-category-fields {
+  width: 100%;
+  min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(126px, 178px);
   gap: 8px;
-  min-width: 0;
 }
 
 .event-category-compact-row .event-category-field {
@@ -114,7 +127,10 @@
 
 .event-category-compact-row .event-category-name,
 .event-category-compact-row .event-category-color-trigger {
+  width: 100%;
+  min-width: 0;
   min-height: 44px;
+  box-sizing: border-box;
   border-radius: 11px;
 }
 
@@ -149,6 +165,10 @@
 }
 
 .event-category-compact-row .event-category-color-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: .78rem;
   font-weight: 700;
 }
@@ -271,9 +291,6 @@
 
   .event-category-compact-row .event-category-color-name {
     max-width: 58px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .category-swipe-content {
