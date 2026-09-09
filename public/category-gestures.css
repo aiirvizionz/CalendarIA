@@ -1,0 +1,292 @@
+.event-categories-list {
+  gap: 8px;
+}
+
+.event-category-row.event-category-compact-row {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.event-category-row.event-category-compact-row.is-dragging {
+  z-index: 8;
+  transform: scale(1.01);
+  opacity: .98;
+  box-shadow: 0 16px 36px rgba(22, 24, 29, .18);
+}
+
+.category-delete-layer {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: 1;
+  width: 104px;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #c83f4a;
+}
+
+.category-delete-action {
+  width: 104px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: .7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.category-delete-action svg {
+  width: 19px;
+  height: 19px;
+}
+
+.category-delete-action:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+.category-swipe-content {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 8px;
+  min-height: 62px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-strong);
+  box-shadow: 0 5px 16px rgba(28, 31, 38, .045);
+  transition: transform 190ms cubic-bezier(.2, .72, .2, 1), box-shadow 150ms ease;
+  touch-action: pan-y;
+  will-change: transform;
+}
+
+.category-swipe-content.is-no-transition {
+  transition: none;
+}
+
+.event-category-compact-row.is-swipe-open .category-swipe-content {
+  box-shadow: 0 8px 22px rgba(28, 31, 38, .09);
+}
+
+.event-category-compact-row.is-removing {
+  pointer-events: none;
+}
+
+.event-category-compact-row .event-category-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(126px, 178px);
+  gap: 8px;
+  min-width: 0;
+}
+
+.event-category-compact-row .event-category-field {
+  display: block;
+  min-width: 0;
+}
+
+.event-category-compact-row .event-category-field-label {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.event-category-compact-row .event-category-name,
+.event-category-compact-row .event-category-color-trigger {
+  min-height: 44px;
+  border-radius: 11px;
+}
+
+.event-category-compact-row .event-category-name {
+  padding: 9px 12px;
+  border-color: transparent;
+  background: transparent;
+  font-size: .94rem;
+  font-weight: 600;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.event-category-compact-row .event-category-name:hover,
+.event-category-compact-row .event-category-name:focus {
+  border-color: var(--border-strong);
+  background: var(--surface-soft);
+  outline: none;
+}
+
+.event-category-compact-row .event-category-color-trigger {
+  grid-template-columns: 18px minmax(0, 1fr) 16px;
+  gap: 8px;
+  padding: 8px 10px;
+  border-color: var(--border);
+  background: var(--surface-soft);
+}
+
+.event-category-compact-row .event-category-color-swatch {
+  width: 16px;
+  height: 16px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--category-color) 17%, transparent);
+}
+
+.event-category-compact-row .event-category-color-name {
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.event-category-compact-row .event-category-color-chevron {
+  width: 15px;
+  height: 15px;
+}
+
+.event-category-compact-row .event-category-drag-handle {
+  width: 38px;
+  height: 44px;
+  justify-self: end;
+  border-radius: 10px;
+  color: var(--subtle);
+  touch-action: none;
+}
+
+.event-category-compact-row .event-category-drag-handle svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+}
+
+.event-category-compact-row .event-category-drag-handle:hover,
+.event-category-compact-row .event-category-drag-handle:focus-visible {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.event-category-compact-row .category-native-delete {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.event-categories-toolbar {
+  margin-top: 14px;
+}
+
+.event-categories-toolbar-copy {
+  font-size: .78rem;
+}
+
+.event-categories-actions {
+  margin-top: 14px;
+}
+
+@media (max-width: 760px) {
+  .event-categories-editor {
+    margin-top: 18px;
+  }
+
+  .event-categories-list {
+    gap: 7px;
+  }
+
+  .event-category-row.event-category-compact-row {
+    border-radius: 13px;
+  }
+
+  .category-swipe-content {
+    min-height: 58px;
+    grid-template-columns: minmax(0, 1fr) 36px;
+    padding: 7px 7px 7px 9px;
+    border-radius: 13px;
+  }
+
+  .event-category-compact-row .event-category-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(108px, 132px);
+    gap: 6px;
+  }
+
+  .event-category-compact-row .event-category-name,
+  .event-category-compact-row .event-category-color-trigger {
+    min-height: 42px;
+  }
+
+  .event-category-compact-row .event-category-name {
+    padding-inline: 10px;
+    font-size: .91rem;
+  }
+
+  .event-category-compact-row .event-category-color-trigger {
+    grid-template-columns: 16px minmax(0, 1fr) 14px;
+    gap: 6px;
+    padding-inline: 8px;
+  }
+
+  .event-category-compact-row .event-category-color-name {
+    font-size: .72rem;
+  }
+
+  .event-category-compact-row .event-category-drag-handle {
+    width: 34px;
+    height: 42px;
+  }
+
+  .category-delete-layer,
+  .category-delete-action {
+    width: 92px;
+  }
+
+  .category-delete-action {
+    font-size: .66rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .event-category-compact-row .event-category-fields {
+    grid-template-columns: minmax(0, 1fr) 104px;
+  }
+
+  .event-category-compact-row .event-category-color-name {
+    max-width: 58px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .category-swipe-content {
+    grid-template-columns: minmax(0, 1fr) 32px;
+  }
+
+  .event-category-compact-row .event-category-drag-handle {
+    width: 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .category-swipe-content {
+    transition-duration: 1ms;
+  }
+}
