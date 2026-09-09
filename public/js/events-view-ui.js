@@ -69,8 +69,12 @@ function injectUI() {
   switcher.setAttribute('role', 'group');
   switcher.setAttribute('aria-label', 'Vista de eventos');
   switcher.innerHTML = `
-    <button class="events-view-button is-active" type="button" data-events-view="list" aria-pressed="true">Lista</button>
-    <button class="events-view-button" type="button" data-events-view="calendar" aria-pressed="false">Calendario</button>`;
+    <button class="events-view-button is-active" type="button" data-events-view="list" aria-pressed="true" aria-label="Vista de lista" title="Lista">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="events-view-button" type="button" data-events-view="calendar" aria-pressed="false" aria-label="Vista de calendario" title="Calendario">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 3v4M17 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>`;
   headingActions.prepend(switcher);
 
   const calendarView = document.createElement('div');
@@ -292,7 +296,7 @@ function enhanceDesktopColorPicker() {
 }
 
 function initialize() {
-  addStylesheet('/events-view.css?v=2', 'eventsViewStyles');
+  addStylesheet('/events-view.css?v=3', 'eventsViewStyles');
   addStylesheet('/desktop-color-palette.css?v=2', 'desktopColorPaletteStyles');
   injectUI();
 
