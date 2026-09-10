@@ -15,10 +15,11 @@ const GOOGLE_EVENT_COLORS = Object.freeze({
 const state = {
   mode: 'list',
   month: startOfMonth(new Date()),
-  events: [],
   selectedDate: '',
-  loading: false,
+  monthCache: new Map(),
+  monthRequests: new Map(),
   reloadTimer: null,
+  preloadStarted: false,
 };
 
 function $(id) { return document.getElementById(id); }
@@ -34,6 +35,10 @@ function addStylesheet(href, marker) {
 
 function startOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function monthKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function ymd(date) {
@@ -57,6 +62,10 @@ function eventTimeLabel(event) {
   return new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit' }).format(parsed);
 }
 
+function currentMonthEvents() {
+  return state.monthCache.get(monthKey(state.month)) || [];
+}
+
 function injectUI() {
   const headingActions = document.querySelector('.events-heading-actions');
   const eventsCard = document.querySelector('.events-card');
@@ -69,10 +78,10 @@ function injectUI() {
   switcher.setAttribute('role', 'group');
   switcher.setAttribute('aria-label', 'Vista de eventos');
   switcher.innerHTML = `
-    <button class="events-view-button is-active" type="button" data-events-view="list" aria-pressed="true" aria-label="Vista de lista" title="Lista">
+    <button class="icon-button events-view-button is-active" type="button" data-events-view="list" aria-pressed="true" aria-label="Vista de lista" title="Lista">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
-    <button class="events-view-button" type="button" data-events-view="calendar" aria-pressed="false" aria-label="Vista de calendario" title="Calendario">
+    <button class="icon-button events-view-button" type="button" data-events-view="calendar" aria-pressed="false" aria-label="Vista de calendario" title="Calendario">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 3v4M17 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     </button>`;
   headingActions.prepend(switcher);
@@ -101,27 +110,15 @@ function injectUI() {
     setMode(button.dataset.eventsView);
   });
 
-  $('eventsCalendarPrev').addEventListener('click', () => {
-    const current = startOfMonth(new Date());
-    const previous = new Date(state.month.getFullYear(), state.month.getMonth() - 1, 1);
-    if (previous < current) return;
-    state.month = previous;
-    state.selectedDate = '';
-    renderCalendar();
-  });
-
-  $('eventsCalendarNext').addEventListener('click', () => {
-    state.month = new Date(state.month.getFullYear(), state.month.getMonth() + 1, 1);
-    state.selectedDate = '';
-    renderCalendar();
-  });
+  $('eventsCalendarPrev').addEventListener('click', () => moveMonth(-1));
+  $('eventsCalendarNext').addEventListener('click', () => moveMonth(1));
 
   $('refreshEventsButton')?.addEventListener('click', () => {
-    if (state.mode === 'calendar') scheduleReload(500);
+    scheduleReload(550);
   });
 
   const observer = new MutationObserver(() => {
-    if (state.mode === 'calendar') scheduleReload(450);
+    if (state.preloadStarted) scheduleReload(700);
   });
   observer.observe(eventsList, { childList: true, subtree: true });
 }
@@ -146,39 +143,89 @@ function setMode(mode) {
   }
   calendar?.classList.toggle('is-hidden', !isCalendar);
 
-  if (isCalendar) loadCalendarEvents();
-}
-
-function scheduleReload(delay = 300) {
-  window.clearTimeout(state.reloadTimer);
-  state.reloadTimer = window.setTimeout(loadCalendarEvents, delay);
-}
-
-async function loadCalendarEvents() {
-  if (state.loading) return;
-  state.loading = true;
-  const grid = $('eventsCalendarGrid');
-  if (grid) grid.innerHTML = '<div class="events-calendar-loading" style="grid-column:1/-1">Actualizando calendario…</div>';
-
-  try {
-    const response = await fetch('/api/calendar/events', {
-      credentials: 'same-origin',
-      headers: { 'X-Time-Zone': Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' },
-    });
-    if (!response.ok) throw new Error('No se pudieron cargar los eventos');
-    const payload = await response.json();
-    state.events = Array.isArray(payload?.events) ? payload.events : [];
-  } catch {
-    state.events = [];
-  } finally {
-    state.loading = false;
-    renderCalendar();
+  if (isCalendar) {
+    const key = monthKey(state.month);
+    if (state.monthCache.has(key)) renderCalendar();
+    else void loadMonth(state.month, { showLoading: true });
   }
 }
 
-function eventsByDate() {
+function moveMonth(delta) {
+  const current = startOfMonth(new Date());
+  const next = new Date(state.month.getFullYear(), state.month.getMonth() + delta, 1);
+  if (next < current) return;
+  state.month = next;
+  state.selectedDate = '';
+
+  const key = monthKey(next);
+  if (state.monthCache.has(key)) renderCalendar();
+  else void loadMonth(next, { showLoading: true });
+
+  const following = new Date(next.getFullYear(), next.getMonth() + 1, 1);
+  void loadMonth(following, { showLoading: false });
+}
+
+function scheduleReload(delay = 400) {
+  window.clearTimeout(state.reloadTimer);
+  state.reloadTimer = window.setTimeout(() => {
+    void loadMonth(state.month, { force: true, showLoading: false });
+  }, delay);
+}
+
+function renderLoading() {
+  if (state.mode !== 'calendar') return;
+  const grid = $('eventsCalendarGrid');
+  if (grid) grid.innerHTML = '<div class="events-calendar-loading" style="grid-column:1/-1">Actualizando calendario…</div>';
+}
+
+function renderLoadError() {
+  if (state.mode !== 'calendar') return;
+  const grid = $('eventsCalendarGrid');
+  if (grid) grid.innerHTML = '<div class="events-calendar-empty" style="grid-column:1/-1">No se pudo actualizar este mes.</div>';
+}
+
+async function loadMonth(date, { force = false, showLoading = false } = {}) {
+  const key = monthKey(date);
+  if (state.monthRequests.has(key)) return state.monthRequests.get(key);
+  if (!force && state.monthCache.has(key)) return state.monthCache.get(key);
+  if (showLoading && !state.monthCache.has(key)) renderLoading();
+
+  const request = (async () => {
+    try {
+      const response = await fetch(`/api/calendar/events?view=calendar&month=${encodeURIComponent(key)}`, {
+        credentials: 'same-origin',
+        headers: { 'X-Time-Zone': Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' },
+      });
+      if (!response.ok) throw new Error('No se pudieron cargar los eventos');
+      const payload = await response.json();
+      const events = Array.isArray(payload?.events) ? payload.events : [];
+      state.monthCache.set(key, events);
+      if (state.mode === 'calendar' && monthKey(state.month) === key) renderCalendar();
+      return events;
+    } catch (error) {
+      if (state.mode === 'calendar' && monthKey(state.month) === key && !state.monthCache.has(key)) renderLoadError();
+      throw error;
+    } finally {
+      state.monthRequests.delete(key);
+    }
+  })();
+
+  state.monthRequests.set(key, request);
+  return request;
+}
+
+function preloadCalendar() {
+  if (state.preloadStarted) return;
+  state.preloadStarted = true;
+  const current = startOfMonth(new Date());
+  const following = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+  void loadMonth(current, { showLoading: false }).catch(() => {});
+  void loadMonth(following, { showLoading: false }).catch(() => {});
+}
+
+function eventsByDate(events) {
   const map = new Map();
-  for (const event of state.events) {
+  for (const event of events) {
     const key = eventDateKey(event);
     if (!key) continue;
     if (!map.has(key)) map.set(key, []);
@@ -197,7 +244,7 @@ function renderCalendar() {
   previous.disabled = state.month <= currentMonth;
   monthLabel.textContent = new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric' }).format(state.month);
 
-  const grouped = eventsByDate();
+  const grouped = eventsByDate(currentMonthEvents());
   const firstWeekday = state.month.getDay();
   const gridStart = new Date(state.month.getFullYear(), state.month.getMonth(), 1 - firstWeekday);
   const todayKey = ymd(new Date());
@@ -296,9 +343,10 @@ function enhanceDesktopColorPicker() {
 }
 
 function initialize() {
-  addStylesheet('/events-view.css?v=3', 'eventsViewStyles');
+  addStylesheet('/events-view.css?v=4', 'eventsViewStyles');
   addStylesheet('/desktop-color-palette.css?v=2', 'desktopColorPaletteStyles');
   injectUI();
+  preloadCalendar();
 
   const tryColorPicker = () => {
     enhanceDesktopColorPicker();
