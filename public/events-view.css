@@ -35,50 +35,39 @@
 
 .events-heading { gap: 14px; }
 .events-heading-actions {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  align-items: center;
 }
 .events-view-switch {
   display: inline-flex;
   flex: none;
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid rgba(20,21,24,.12);
-  border-radius: 12px;
-  background: #e8e4de;
-}
-.events-view-button {
-  width: 38px;
-  height: 38px;
-  min-height: 38px;
-  display: grid;
-  place-items: center;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 9px;
   background: transparent;
-  color: #74767b;
-  cursor: pointer;
-  transition: color 140ms ease, background 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 .events-view-button svg {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
   pointer-events: none;
 }
-.events-view-button:hover:not(.is-active) {
-  color: #36383d;
-  background: rgba(255,255,255,.42);
+.events-card .events-view-button.is-active {
+  color: #f8f4ee !important;
+  background: #111316 !important;
+  border-color: #111316 !important;
+  box-shadow: 0 4px 12px rgba(17, 19, 22, .14);
 }
-.events-view-button:active { transform: translateY(1px); }
+.events-card .events-view-button.is-active:hover {
+  color: #f8f4ee !important;
+  background: #111316 !important;
+  border-color: #111316 !important;
+}
 .events-view-button:focus-visible {
   outline: 2px solid #111316;
   outline-offset: 2px;
-}
-.events-view-button.is-active {
-  background: #111316;
-  color: #f8f4ee;
-  box-shadow: 0 4px 12px rgba(17,19,22,.14);
 }
 
 .events-calendar-view { margin-top: 18px; }
@@ -187,20 +176,8 @@
 @media (max-width: 620px) {
   .events-heading { align-items: flex-start; }
   .events-heading-actions { gap: 6px; }
-  .events-view-switch {
-    width: auto;
-    order: initial;
-    margin-top: 0;
-  }
-  .events-view-button {
-    width: 36px;
-    height: 36px;
-    min-height: 36px;
-  }
-  .events-view-button svg {
-    width: 18px;
-    height: 18px;
-  }
+  .events-view-switch { gap: 5px; }
+  .events-view-button svg { width: 16px; height: 16px; }
   .events-calendar-grid { gap: 2px; padding-inline: 5px; }
   .events-calendar-weekdays { padding-inline: 5px; }
   .events-calendar-day { min-height: 38px; font-size: .68rem; }

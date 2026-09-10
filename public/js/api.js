@@ -6,10 +6,10 @@ import './shared-footer.js';
 
 // Progressive UI enhancements. They are intentionally not awaited so a visual
 // enhancement can never prevent the main CalendarIA application from starting.
-void import('./events-view-ui.js?v=3').catch((error) => {
+void import('./events-view-ui.js?v=4').catch((error) => {
   console.error('events_view_enhancement_failed', error);
 });
-void import('./category-gestures-ui.js?v=3').catch((error) => {
+void import('./category-gestures-ui.js?v=4').catch((error) => {
   console.error('category_gestures_enhancement_failed', error);
 });
 
