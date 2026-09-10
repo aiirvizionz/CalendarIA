@@ -1,11 +1,11 @@
-const SWIPE_REVEAL = 94;
-const SWIPE_DELETE_MIN = 132;
+const SWIPE_REVEAL = 86;
+const SWIPE_DELETE_MIN = 124;
 
 function addStylesheet() {
   if (document.querySelector('link[data-category-gestures-styles]')) return;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = '/category-gestures.css?v=3';
+  link.href = '/category-gestures.css?v=4';
   link.dataset.categoryGesturesStyles = 'true';
   document.head.appendChild(link);
 }
@@ -41,7 +41,7 @@ function bindSwipe(row, content, nativeDelete, deleteButton) {
     currentX = x;
     content.classList.toggle('is-no-transition', !animate);
     content.style.transform = `translateX(${x}px)`;
-    row.classList.toggle('is-swipe-open', x <= -44);
+    row.classList.toggle('is-swipe-open', x <= -40);
     if (!animate) requestAnimationFrame(() => content.classList.remove('is-no-transition'));
   };
 
@@ -76,7 +76,7 @@ function bindSwipe(row, content, nativeDelete, deleteButton) {
     }
 
     event.preventDefault();
-    const maxLeft = Math.min(190, Math.max(SWIPE_DELETE_MIN, row.clientWidth * 0.45));
+    const maxLeft = Math.min(180, Math.max(SWIPE_DELETE_MIN, row.clientWidth * 0.42));
     const x = Math.max(-maxLeft, Math.min(8, gesture.offset + dx));
     apply(x, false);
   }, { passive: false });
@@ -89,9 +89,9 @@ function bindSwipe(row, content, nativeDelete, deleteButton) {
     content.classList.remove('is-no-transition');
     if (!wasHorizontal) return;
 
-    const deleteThreshold = -Math.min(168, Math.max(SWIPE_DELETE_MIN, row.clientWidth * 0.38));
+    const deleteThreshold = -Math.min(160, Math.max(SWIPE_DELETE_MIN, row.clientWidth * 0.36));
     if (currentX <= deleteThreshold && nativeDelete && !nativeDelete.disabled) requestDelete(row, nativeDelete);
-    else if (currentX <= -44 && nativeDelete && !nativeDelete.disabled) reveal();
+    else if (currentX <= -40 && nativeDelete && !nativeDelete.disabled) reveal();
     else reset();
   };
 
@@ -111,7 +111,7 @@ function enhanceRow(row) {
   row.dataset.compactGestureEnhanced = 'true';
   row.classList.add('event-category-compact-row');
 
-  handle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
+  handle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14M5 12h14M5 16h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
   handle.title = 'Arrastra para reordenar la categoría';
   handle.setAttribute('aria-label', 'Arrastra para reordenar la categoría');
 
