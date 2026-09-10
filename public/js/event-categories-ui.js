@@ -327,6 +327,8 @@ function beginPointerReorder(event, row, draftId) {
 
   event.preventDefault();
   const handle = event.currentTarget;
+  const list = $('eventCategoriesList');
+  if (!list) return;
   const pointerId = event.pointerId;
   let moved = false;
   row.classList.add('is-dragging');
@@ -334,27 +336,33 @@ function beginPointerReorder(event, row, draftId) {
 
   try { handle.setPointerCapture(pointerId); } catch { /* No-op. */ }
 
+  const placeAtPointer = (clientY) => {
+    const otherRows = [...list.querySelectorAll('.event-category-row')]
+      .filter((candidate) => candidate !== row);
+    let insertionIndex = 0;
+    for (const candidate of otherRows) {
+      const rect = candidate.getBoundingClientRect();
+      if (clientY > rect.top + rect.height / 2) insertionIndex += 1;
+    }
+
+    const currentIndex = state.draft.findIndex((category) => category._uiId === draftId);
+    if (currentIndex < 0 || currentIndex === insertionIndex) return;
+
+    const [item] = state.draft.splice(currentIndex, 1);
+    state.draft.splice(insertionIndex, 0, item);
+    const referenceRows = [...list.querySelectorAll('.event-category-row')]
+      .filter((candidate) => candidate !== row);
+    list.insertBefore(row, referenceRows[insertionIndex] || null);
+    moved = true;
+  };
+
   const onMove = (moveEvent) => {
     if (moveEvent.pointerId !== pointerId) return;
     moveEvent.preventDefault();
 
-    if (moveEvent.clientY < 72) window.scrollBy({ top: -14, behavior: 'auto' });
-    if (moveEvent.clientY > window.innerHeight - 72) window.scrollBy({ top: 14, behavior: 'auto' });
-
-    const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)?.closest('.event-category-row');
-    if (!target || target === row) return;
-
-    const targetId = target.dataset.draftId;
-    const from = state.draft.findIndex((category) => category._uiId === draftId);
-    const to = state.draft.findIndex((category) => category._uiId === targetId);
-    if (from < 0 || to < 0 || from === to) return;
-
-    const [item] = state.draft.splice(from, 1);
-    state.draft.splice(to, 0, item);
-    const list = $('eventCategoriesList');
-    if (from < to) list?.insertBefore(row, target.nextSibling);
-    else list?.insertBefore(row, target);
-    moved = true;
+    if (moveEvent.clientY < 84) window.scrollBy({ top: -18, behavior: 'auto' });
+    if (moveEvent.clientY > window.innerHeight - 84) window.scrollBy({ top: 18, behavior: 'auto' });
+    placeAtPointer(moveEvent.clientY);
   };
 
   const finish = (finishEvent) => {

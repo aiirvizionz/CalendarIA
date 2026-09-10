@@ -36,6 +36,7 @@ const {
   revokeToken,
   updateCalendarEvent,
 } = require('./src/services/google');
+const { listCalendarMonthEvents } = require('./src/services/google-calendar-month');
 const {
   listEventTypes,
   replaceEventTypes,
@@ -349,7 +350,16 @@ app.get(
   async (req, res, next) => {
     try {
       const accessToken = await googleContext(req, res);
-      const events = await listCalendarEvents(accessToken, getTimeZone(req));
+      const timeZone = getTimeZone(req);
+      if (String(req.query.view || '') === 'calendar') {
+        const month = String(req.query.month || '');
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+          throw new ValidationError('El mes solicitado no es válido');
+        }
+        const events = await listCalendarMonthEvents(accessToken, timeZone, month);
+        return res.json({ events, month });
+      }
+      const events = await listCalendarEvents(accessToken, timeZone);
       return res.json({ events });
     } catch (error) {
       return next(error);
