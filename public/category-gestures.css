@@ -1,5 +1,5 @@
 .event-categories-list {
-  gap: 8px;
+  gap: 6px;
 }
 
 .event-category-row.event-category-compact-row {
@@ -10,28 +10,28 @@
   overflow: hidden;
   padding: 0;
   border: 0;
-  border-radius: 14px;
+  border-radius: 12px;
   background: transparent;
   box-shadow: none;
 }
 
 .event-category-row.event-category-compact-row.is-dragging {
   z-index: 8;
-  transform: scale(1.01);
+  transform: scale(1.008);
   opacity: .98;
-  box-shadow: 0 16px 36px rgba(22, 24, 29, .18);
+  box-shadow: 0 12px 30px rgba(22, 24, 29, .16);
 }
 
 .category-delete-layer {
   position: absolute;
   inset: 0 0 0 auto;
   z-index: 1;
-  width: 104px;
+  width: 92px;
   height: 100%;
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
   background: #c83f4a;
   pointer-events: none;
@@ -42,24 +42,24 @@
 }
 
 .category-delete-action {
-  width: 104px;
+  width: 92px;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 3px;
   border: 0;
   background: transparent;
   color: #fff;
   font: inherit;
-  font-size: .7rem;
+  font-size: .66rem;
   font-weight: 700;
   cursor: pointer;
 }
 
 .category-delete-action svg {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
 }
 
 .category-delete-action:disabled {
@@ -74,15 +74,15 @@
   min-width: 0;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
+  grid-template-columns: minmax(0, 1fr) 34px;
   align-items: center;
-  gap: 8px;
-  min-height: 62px;
-  padding: 8px 8px 8px 12px;
+  gap: 5px;
+  min-height: 52px;
+  padding: 5px 7px 5px 11px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--surface-strong);
-  box-shadow: 0 5px 16px rgba(28, 31, 38, .045);
+  box-shadow: 0 3px 11px rgba(28, 31, 38, .035);
   transition: transform 190ms cubic-bezier(.2, .72, .2, 1), box-shadow 150ms ease;
   touch-action: pan-y;
   will-change: transform;
@@ -93,7 +93,7 @@
 }
 
 .event-category-compact-row.is-swipe-open .category-swipe-content {
-  box-shadow: 0 8px 22px rgba(28, 31, 38, .09);
+  box-shadow: 0 7px 18px rgba(28, 31, 38, .08);
 }
 
 .event-category-compact-row.is-removing {
@@ -104,8 +104,9 @@
   width: 100%;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(126px, 178px);
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, 154px);
+  gap: 5px;
+  align-items: center;
 }
 
 .event-category-compact-row .event-category-field {
@@ -129,39 +130,49 @@
 .event-category-compact-row .event-category-color-trigger {
   width: 100%;
   min-width: 0;
-  min-height: 44px;
+  min-height: 38px;
   box-sizing: border-box;
-  border-radius: 11px;
+  border-radius: 9px;
 }
 
 .event-category-compact-row .event-category-name {
-  padding: 9px 12px;
+  padding: 7px 9px;
   border-color: transparent;
   background: transparent;
-  font-size: .94rem;
-  font-weight: 600;
+  font-size: .93rem;
+  font-weight: 650;
   transition: border-color 150ms ease, background 150ms ease;
 }
 
 .event-category-compact-row .event-category-name:hover,
 .event-category-compact-row .event-category-name:focus {
   border-color: var(--border-strong);
-  background: var(--surface-soft);
+  background: rgba(255, 255, 255, .36);
   outline: none;
 }
 
-.event-category-compact-row .event-category-color-trigger {
-  grid-template-columns: 18px minmax(0, 1fr) 16px;
-  gap: 8px;
-  padding: 8px 10px;
-  border-color: var(--border);
-  background: var(--surface-soft);
+.event-category-compact-row .event-category-color-trigger,
+.event-category-compact-row .event-category-color-trigger:hover,
+.event-category-compact-row .event-category-color-trigger:focus-visible,
+.event-category-compact-row .event-category-color-trigger:active {
+  grid-template-columns: 17px minmax(0, 1fr) 20px;
+  gap: 7px;
+  padding: 6px 2px 6px 7px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.event-category-compact-row .event-category-color-trigger:focus-visible {
+  outline: 1px solid var(--border-strong);
+  outline-offset: 1px;
 }
 
 .event-category-compact-row .event-category-color-swatch {
   width: 16px;
   height: 16px;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--category-color) 17%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--category-color) 15%, transparent);
 }
 
 .event-category-compact-row .event-category-color-name {
@@ -169,33 +180,36 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: .78rem;
+  color: var(--text);
+  font-size: .75rem;
   font-weight: 700;
 }
 
 .event-category-compact-row .event-category-color-chevron {
-  width: 15px;
-  height: 15px;
+  width: 18px;
+  height: 18px;
+  justify-self: end;
+  color: var(--muted);
 }
 
 .event-category-compact-row .event-category-drag-handle {
-  width: 38px;
-  height: 44px;
+  width: 30px;
+  height: 38px;
   justify-self: end;
-  border-radius: 10px;
+  border-radius: 8px;
   color: var(--subtle);
   touch-action: none;
 }
 
 .event-category-compact-row .event-category-drag-handle svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   fill: none;
 }
 
 .event-category-compact-row .event-category-drag-handle:hover,
 .event-category-compact-row .event-category-drag-handle:focus-visible {
-  background: var(--surface-soft);
+  background: rgba(17, 19, 22, .045);
   color: var(--text);
 }
 
@@ -213,92 +227,101 @@
 }
 
 .event-categories-toolbar {
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .event-categories-toolbar-copy {
-  font-size: .78rem;
+  font-size: .76rem;
 }
 
 .event-categories-actions {
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 @media (max-width: 760px) {
   .event-categories-editor {
-    margin-top: 18px;
+    margin-top: 16px;
   }
 
   .event-categories-list {
-    gap: 7px;
+    gap: 6px;
   }
 
-  .event-category-row.event-category-compact-row {
-    border-radius: 13px;
+  .event-category-row.event-category-compact-row,
+  .category-swipe-content,
+  .category-delete-layer {
+    border-radius: 11px;
   }
 
   .category-swipe-content {
-    min-height: 58px;
-    grid-template-columns: minmax(0, 1fr) 36px;
-    padding: 7px 7px 7px 9px;
-    border-radius: 13px;
+    min-height: 50px;
+    grid-template-columns: minmax(0, 1fr) 31px;
+    padding: 4px 6px 4px 9px;
   }
 
   .event-category-compact-row .event-category-fields {
-    grid-template-columns: minmax(0, 1fr) minmax(108px, 132px);
-    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) minmax(105px, 132px);
+    gap: 4px;
   }
 
   .event-category-compact-row .event-category-name,
   .event-category-compact-row .event-category-color-trigger {
-    min-height: 42px;
+    min-height: 36px;
   }
 
   .event-category-compact-row .event-category-name {
-    padding-inline: 10px;
-    font-size: .91rem;
+    padding-inline: 8px;
+    font-size: .9rem;
   }
 
-  .event-category-compact-row .event-category-color-trigger {
-    grid-template-columns: 16px minmax(0, 1fr) 14px;
-    gap: 6px;
-    padding-inline: 8px;
+  .event-category-compact-row .event-category-color-trigger,
+  .event-category-compact-row .event-category-color-trigger:hover,
+  .event-category-compact-row .event-category-color-trigger:focus-visible,
+  .event-category-compact-row .event-category-color-trigger:active {
+    grid-template-columns: 16px minmax(0, 1fr) 18px;
+    gap: 5px;
+    padding-inline: 5px 0;
   }
 
   .event-category-compact-row .event-category-color-name {
-    font-size: .72rem;
+    font-size: .7rem;
   }
 
   .event-category-compact-row .event-category-drag-handle {
-    width: 34px;
-    height: 42px;
+    width: 28px;
+    height: 36px;
+  }
+
+  .event-category-compact-row .event-category-drag-handle svg {
+    width: 19px;
+    height: 19px;
   }
 
   .category-delete-layer,
   .category-delete-action {
-    width: 92px;
+    width: 86px;
   }
 
   .category-delete-action {
-    font-size: .66rem;
+    font-size: .63rem;
   }
 }
 
 @media (max-width: 390px) {
   .event-category-compact-row .event-category-fields {
-    grid-template-columns: minmax(0, 1fr) 104px;
+    grid-template-columns: minmax(0, 1fr) 103px;
   }
 
   .event-category-compact-row .event-category-color-name {
-    max-width: 58px;
+    max-width: 54px;
   }
 
   .category-swipe-content {
-    grid-template-columns: minmax(0, 1fr) 32px;
+    grid-template-columns: minmax(0, 1fr) 28px;
   }
 
   .event-category-compact-row .event-category-drag-handle {
-    width: 30px;
+    width: 26px;
   }
 }
 
