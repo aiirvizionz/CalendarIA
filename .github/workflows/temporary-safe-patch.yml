@@ -1,0 +1,157 @@
+name: Temporary safe patch
+
+on:
+  push:
+    branches: [fix/calendar-preload-recurrence-compact-categories]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[auto-patch]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Apply targeted patches
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          server = Path('server.js')
+          text = server.read_text()
+          old_import = """} = require('./src/services/google');
+          const {
+            listEventTypes,"""
+          new_import = """} = require('./src/services/google');
+          const { listCalendarMonthEvents } = require('./src/services/google-calendar-month');
+          const {
+            listEventTypes,"""
+          assert old_import in text, 'server import anchor not found'
+          text = text.replace(old_import, new_import, 1)
+
+          old_route = """app.get(
+            '/api/calendar/events',
+            requireSession,
+            requireGoogleIntegration,
+            calendarUserLimiter,
+            async (req, res, next) => {
+              try {
+                const accessToken = await googleContext(req, res);
+                const events = await listCalendarEvents(accessToken, getTimeZone(req));
+                return res.json({ events });
+              } catch (error) {
+                return next(error);
+              }
+            },
+          );"""
+          new_route = """app.get(
+            '/api/calendar/events',
+            requireSession,
+            requireGoogleIntegration,
+            calendarUserLimiter,
+            async (req, res, next) => {
+              try {
+                const accessToken = await googleContext(req, res);
+                const timeZone = getTimeZone(req);
+                if (String(req.query.view || '') === 'calendar') {
+                  const month = String(req.query.month || '');
+                  if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+                    throw new ValidationError('El mes solicitado no es válido');
+                  }
+                  const events = await listCalendarMonthEvents(accessToken, timeZone, month);
+                  return res.json({ events, month });
+                }
+                const events = await listCalendarEvents(accessToken, timeZone);
+                return res.json({ events });
+              } catch (error) {
+                return next(error);
+              }
+            },
+          );"""
+          assert old_route in text, 'calendar route anchor not found'
+          server.write_text(text.replace(old_route, new_route, 1))
+
+          categories = Path('public/js/event-categories-ui.js')
+          text = categories.read_text()
+          start = text.index('function beginPointerReorder(')
+          end = text.index('\nfunction renderEditor()', start)
+          replacement = r'''function beginPointerReorder(event, row, draftId) {
+            if (state.saving) return;
+            if (event.pointerType === 'mouse' && event.button !== 0) return;
+
+            event.preventDefault();
+            const handle = event.currentTarget;
+            const list = $('eventCategoriesList');
+            if (!list) return;
+            const pointerId = event.pointerId;
+            let moved = false;
+            row.classList.add('is-dragging');
+            document.body.classList.add('is-category-dragging');
+
+            try { handle.setPointerCapture(pointerId); } catch { /* No-op. */ }
+
+            const placeAtPointer = (clientY) => {
+              const otherRows = [...list.querySelectorAll('.event-category-row')]
+                .filter((candidate) => candidate !== row);
+              let insertionIndex = 0;
+              for (const candidate of otherRows) {
+                const rect = candidate.getBoundingClientRect();
+                if (clientY > rect.top + rect.height / 2) insertionIndex += 1;
+              }
+
+              const currentIndex = state.draft.findIndex((category) => category._uiId === draftId);
+              if (currentIndex < 0 || currentIndex === insertionIndex) return;
+
+              const [item] = state.draft.splice(currentIndex, 1);
+              state.draft.splice(insertionIndex, 0, item);
+              const referenceRows = [...list.querySelectorAll('.event-category-row')]
+                .filter((candidate) => candidate !== row);
+              list.insertBefore(row, referenceRows[insertionIndex] || null);
+              moved = true;
+            };
+
+            const onMove = (moveEvent) => {
+              if (moveEvent.pointerId !== pointerId) return;
+              moveEvent.preventDefault();
+
+              if (moveEvent.clientY < 84) window.scrollBy({ top: -18, behavior: 'auto' });
+              if (moveEvent.clientY > window.innerHeight - 84) window.scrollBy({ top: 18, behavior: 'auto' });
+              placeAtPointer(moveEvent.clientY);
+            };
+
+            const finish = (finishEvent) => {
+              if (finishEvent.pointerId !== pointerId) return;
+              handle.removeEventListener('pointermove', onMove);
+              handle.removeEventListener('pointerup', finish);
+              handle.removeEventListener('pointercancel', finish);
+              try { handle.releasePointerCapture(pointerId); } catch { /* No-op. */ }
+              row.classList.remove('is-dragging');
+              document.body.classList.remove('is-category-dragging');
+              if (moved) {
+                markDirty();
+                renderEditor();
+              }
+            };
+
+            handle.addEventListener('pointermove', onMove);
+            handle.addEventListener('pointerup', finish);
+            handle.addEventListener('pointercancel', finish);
+          }
+          '''
+          categories.write_text(text[:start] + replacement + text[end:])
+          PY
+          git diff --check
+      - name: Commit patch
+        shell: bash
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "CalendarIA CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add server.js public/js/event-categories-ui.js
+          git commit -m "Add exact calendar recurrence and direct drag [auto-patch]"
+          git push origin HEAD:${GITHUB_REF_NAME}
