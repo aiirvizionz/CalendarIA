@@ -10,27 +10,27 @@ function read(path) {
 
 test('las mejoras visuales se cargan sin bloquear el módulo principal', () => {
   const api = read('public/js/api.js');
-  assert.match(api, /void import\('\.\/events-view-ui\.js\?v=3'\)\.catch/);
-  assert.match(api, /void import\('\.\/category-gestures-ui\.js\?v=3'\)\.catch/);
+  assert.match(api, /void import\('\.\/events-view-ui\.js\?v=4'\)\.catch/);
+  assert.match(api, /void import\('\.\/category-gestures-ui\.js\?v=4'\)\.catch/);
   assert.doesNotMatch(api, /^import '\.\/events-view-ui\.js/m);
   assert.doesNotMatch(api, /^import '\.\/category-gestures-ui\.js/m);
 });
 
-test('la vista de eventos contiene switch de iconos y navegación mensual', () => {
+test('la vista de eventos usa controles del mismo estilo que actualizar y precarga meses', () => {
   const ui = read('public/js/events-view-ui.js');
   const css = read('public/events-view.css');
-  assert.match(ui, /data-events-view="list"/);
-  assert.match(ui, /data-events-view="calendar"/);
+  assert.match(ui, /class="icon-button events-view-button is-active"/);
+  assert.match(ui, /class="icon-button events-view-button"/);
   assert.match(ui, /aria-label="Vista de lista"/);
   assert.match(ui, /aria-label="Vista de calendario"/);
-  assert.match(ui, /<svg viewBox="0 0 24 24"/);
+  assert.match(ui, /monthCache:\s*new Map\(\)/);
+  assert.match(ui, /function preloadCalendar\(\)/);
+  assert.match(ui, /view=calendar&month=/);
+  assert.match(ui, /state\.monthCache\.has\(key\)/);
   assert.match(ui, /eventsCalendarPrev/);
   assert.match(ui, /eventsCalendarNext/);
-  assert.match(ui, /events-calendar-dot/);
-  assert.match(ui, /fetch\('\/api\/calendar\/events'/);
-  assert.match(css, /\.events-view-button\s*\{[\s\S]*width:\s*38px/);
-  assert.match(css, /\.events-view-button svg\s*\{/);
-  assert.doesNotMatch(css, /\.events-view-switch\s*\{[\s\S]{0,220}width:\s*100%/);
+  assert.match(css, /\.events-view-switch\s*\{[\s\S]*background:\s*transparent/);
+  assert.doesNotMatch(css, /\.events-view-button\s*\{[\s\S]{0,160}width:\s*38px/);
 });
 
 test('el panel de eventos se vuelve claro y la paleta visual solo se aplica en escritorio', () => {
@@ -43,17 +43,28 @@ test('el panel de eventos se vuelve claro y la paleta visual solo se aplica en e
   assert.match(paletteCss, /grid-template-columns:\s*repeat\(6, 1fr\)/);
 });
 
-test('las categorías ocupan todo el ancho y conservan drag compacto y swipe para borrar', () => {
+test('el endpoint mensual se mantiene separado de la lista normal', () => {
+  const server = read('server.js');
+  assert.match(server, /listCalendarMonthEvents/);
+  assert.match(server, /req\.query\.view/);
+  assert.match(server, /req\.query\.month/);
+  assert.match(server, /listCalendarEvents\(accessToken, timeZone\)/);
+});
+
+test('las categorías son compactas, sin fondo gris de color y conservan swipe', () => {
   const ui = read('public/js/category-gestures-ui.js');
+  const baseUi = read('public/js/event-categories-ui.js');
   const css = read('public/category-gestures.css');
   assert.match(ui, /Arrastra para reordenar la categoría/);
+  assert.match(ui, /category-gestures\.css\?v=4/);
+  assert.match(ui, /M5 8h14M5 12h14M5 16h14/);
   assert.match(ui, /SWIPE_DELETE_MIN/);
   assert.match(ui, /Eliminar/);
-  assert.match(ui, /category-gestures\.css\?v=3/);
-  assert.doesNotMatch(ui, /Etiquetas de eventos/);
-  assert.match(css, /\.event-category-row\.event-category-compact-row\s*\{[\s\S]*display:\s*block/);
-  assert.match(css, /\.event-category-row\.event-category-compact-row\s*\{[\s\S]*width:\s*100%/);
-  assert.match(css, /\.category-swipe-content\s*\{[\s\S]*width:\s*100%/);
-  assert.match(css, /grid-template-columns:\s*minmax\(0, 1fr\) minmax\(126px, 178px\)/);
+  assert.match(baseUi, /const placeAtPointer = \(clientY\) =>/);
+  assert.match(baseUi, /getBoundingClientRect\(\)/);
+  assert.match(baseUi, /state\.draft\.splice\(insertionIndex, 0, item\)/);
+  assert.match(css, /\.category-swipe-content\s*\{[\s\S]*min-height:\s*52px/);
+  assert.match(css, /\.event-category-compact-row \.event-category-color-trigger,[\s\S]*background:\s*transparent/);
+  assert.match(css, /\.event-category-compact-row \.event-category-name,[\s\S]*min-height:\s*38px/);
   assert.match(css, /touch-action:\s*pan-y/);
 });
