@@ -9,8 +9,9 @@
 ![Gemini](https://img.shields.io/badge/Gemini-Interactions_API-8E75B2?logo=googlegemini&logoColor=white)
 ![Google Calendar](https://img.shields.io/badge/Google_Calendar-API-4285F4?logo=googlecalendar&logoColor=white)
 ![Render](https://img.shields.io/badge/Deploy-Render-000000?logo=render&logoColor=white)
+![Sentry](https://img.shields.io/badge/Observability-Sentry-362D59?logo=sentry&logoColor=white)
 
-**[Abrir CalendarIA](https://calendaria.onrender.com/)** · **[Política de privacidad](https://calendaria.onrender.com/privacy.html)**
+**[Abrir CalendarIA](https://calendaria.dev/)** · **[Política de privacidad](https://calendaria.dev/privacy.html)**
 
 </div>
 
@@ -203,9 +204,11 @@ Texto / imagen / voz del usuario ──► Gemini ──► propuesta de evento
 
 CalendarIA no mantiene una base de datos propia de perfiles o eventos. El frontend elimina claves heredadas de almacenamiento local y no utiliza `localStorage` como fuente de verdad.
 
+La observabilidad de producción utiliza **Sentry** de forma opcional mediante `SENTRY_DSN`. El backend usa el SDK oficial de Node y el navegador activa errores, tracing y Replay solo cuando existe configuración. `sendDefaultPii` permanece desactivado y Replay enmascara texto, inputs y contenido multimedia.
+
 La política de privacidad pública describe con más detalle el tratamiento actual de cookies, tokens, Google Calendar, Gemini, logs técnicos y proveedores:
 
-**https://calendaria.onrender.com/privacy.html**
+**https://calendaria.dev/privacy.html**
 
 ---
 
@@ -313,6 +316,12 @@ En producción se utilizan principalmente:
 ```text
 SESSION_SECRET
 APP_BASE_URL
+SENTRY_DSN
+SENTRY_ENVIRONMENT
+SENTRY_TRACES_SAMPLE_RATE
+SENTRY_BROWSER_TRACES_SAMPLE_RATE
+SENTRY_REPLAYS_SESSION_SAMPLE_RATE
+SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE
 GEMINI_API_KEY
 GEMINI_MODEL
 GOOGLE_OAUTH_CLIENT_ID
@@ -402,7 +411,7 @@ npm run ci
 
 La política pública se encuentra en:
 
-**https://calendaria.onrender.com/privacy.html**
+**https://calendaria.dev/privacy.html**
 
 La versión del repositorio está en [`public/privacy.html`](public/privacy.html).
 

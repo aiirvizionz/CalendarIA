@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#08090b">
   <meta name="description" content="Política de privacidad de CalendarIA y tratamiento de datos de Google Calendar, Google OAuth y Gemini.">
   <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://calendaria.dev/privacy.html">
   <title>Política de privacidad · CalendarIA</title>
   <link rel="icon" href="/assets/calendaria-logo.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/assets/calendaria-logo.svg">
@@ -33,13 +34,13 @@
         <p class="eyebrow">Privacidad y datos</p>
         <h1>Política de privacidad</h1>
         <p class="lead">Esta política explica cómo CalendarIA accede, utiliza, almacena y comparte información cuando utilizas la aplicación, conectas tu cuenta de Google o empleas las funciones de inteligencia artificial.</p>
-        <p class="updated">Última actualización: 14 de agosto de 2026</p>
+        <p class="updated">Última actualización: 17 de septiembre de 2026</p>
       </header>
 
       <section>
         <h2>1. Responsable y alcance</h2>
         <p><strong>CalendarIA</strong> es un proyecto de software desarrollado por <strong>David Alejandro Lopez Huerta</strong>. La aplicación permite crear eventos manualmente o convertir texto, imágenes y notas de voz en una propuesta estructurada de evento que el usuario revisa antes de enviarla a Google Calendar.</p>
-        <p>Esta política aplica al sitio web de CalendarIA y a las funciones que utilizan Google OAuth/OpenID Connect, Google Calendar API, Google Gemini API, Render y recursos tipográficos de Google Fonts.</p>
+        <p>Esta política aplica al sitio web de CalendarIA y a las funciones que utilizan Google OAuth/OpenID Connect, Google Calendar API, Google Gemini API, Supabase, Sentry, Render y recursos tipográficos de Google Fonts.</p>
         <p>CalendarIA no es un producto de Google ni está operado por Google.</p>
       </section>
 
@@ -86,6 +87,7 @@
         <p>CalendarIA utiliza temporalmente la dirección IP del cliente para aplicar límites de solicitudes y prevención básica de abuso. Los contadores de rate limiting de la versión estable se mantienen en memoria del proceso y no forman una base de datos persistente de usuarios.</p>
         <p>El servidor genera identificadores aleatorios de solicitud y de análisis. Los logs pueden incluir información operativa como códigos de error, estado HTTP, modelo de IA utilizado, etapa del fallo e identificadores técnicos de correlación.</p>
         <p>Los logs de CalendarIA no están diseñados para registrar deliberadamente el texto analizado, imágenes, audio, tokens OAuth, refresh tokens, claves de API ni títulos de eventos.</p>
+        <p>Cuando la observabilidad con Sentry está habilitada, CalendarIA puede enviar excepciones, metadatos técnicos de diagnóstico, trazas de rendimiento muestreadas y sesiones de interfaz muestreadas. La configuración evita enviar PII por defecto, filtra cabeceras sensibles como <code>Authorization</code>, cookies y tokens CSRF, y no adjunta cuerpos de solicitud ni query strings a los errores del servidor. En Session Replay, el texto, los campos de entrada y los recursos multimedia se enmascaran o bloquean antes del envío.</p>
       </section>
 
       <section>
@@ -141,6 +143,7 @@
 
         <h3>Logs técnicos</h3>
         <p>Los logs operativos pueden ser conservados por la infraestructura de alojamiento durante el periodo configurado por el proveedor. CalendarIA intenta limitar sus propios mensajes de log a información operativa y de seguridad necesaria para diagnosticar errores y abuso.</p>
+        <p>Los eventos y replays enviados a Sentry están sujetos a la retención configurada en la cuenta de Sentry utilizada por CalendarIA. El muestreo se mantiene limitado para reducir la recopilación y el consumo de cuota.</p>
       </section>
 
       <section>
@@ -151,6 +154,7 @@
           <li><strong>Google Calendar API:</strong> consulta y gestión de eventos solicitada por el usuario.</li>
           <li><strong>Google Gemini API:</strong> análisis del texto, imagen o audio que el usuario envía directamente para generar una propuesta de evento.</li>
           <li><strong>Render:</strong> infraestructura de alojamiento y ejecución del servidor.</li>
+          <li><strong>Sentry:</strong> monitoreo de errores, rendimiento y Session Replay muestreado con controles de privacidad para diagnosticar fallos de la aplicación.</li>
           <li><strong>Google Fonts:</strong> entrega de las fuentes utilizadas por la interfaz; al solicitar estos recursos, el navegador se comunica directamente con infraestructura de Google y pueden procesarse metadatos normales de conexión conforme a las políticas de Google.</li>
         </ul>
         <p>CalendarIA no envía eventos obtenidos de Google Calendar a Gemini y no comparte datos de Google con plataformas publicitarias, corredores de datos o revendedores de información.</p>
@@ -231,5 +235,6 @@
       <p class="calendar-footer-copy">© 2026 CalendarIA · David Alejandro Lopez Huerta</p>
     </div>
   </footer>
+  <script type="module" src="/js/sentry-client.js"></script>
 </body>
 </html>

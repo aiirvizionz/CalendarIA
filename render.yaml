@@ -15,9 +15,21 @@ services:
       - key: NODE_ENV
         value: production
       - key: APP_BASE_URL
-        value: https://calendaria.onrender.com
+        value: https://calendaria.dev
       - key: SUPABASE_URL
         value: https://synuwdoinjjcihyzfvon.supabase.co
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0.10"
+      - key: SENTRY_BROWSER_TRACES_SAMPLE_RATE
+        value: "0.05"
+      - key: SENTRY_REPLAYS_SESSION_SAMPLE_RATE
+        value: "0.02"
+      - key: SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE
+        value: "1.0"
       - key: GEMINI_MODEL
         value: gemini-3.5-flash
       - key: GEMINI_API_KEY
