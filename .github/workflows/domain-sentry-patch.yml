@@ -1,0 +1,217 @@
+name: Temporary domain and Sentry patch
+
+on:
+  push:
+    branches: [feat/calendaria-dev-sentry]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[domain-sentry-patch]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Apply domain and Sentry integration patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          OLD = 'https://calendaria.onrender.com'
+          NEW = 'https://calendaria.dev'
+
+          # Domain references in public/documentation files.
+          for name in ['README.md', 'public/index.html', 'public/welcome.html', 'scripts/patch-open-graph.js', 'render.yaml']:
+              path = Path(name)
+              text = path.read_text()
+              text = text.replace(OLD, NEW)
+              path.write_text(text)
+
+          # Load browser monitoring on every public page without making it a critical dependency.
+          for name in ['public/index.html', 'public/welcome.html', 'public/privacy.html']:
+              path = Path(name)
+              text = path.read_text()
+              marker = '  <script type="module" src="/js/sentry-client.js"></script>\n'
+              if marker not in text:
+                  assert '</body>' in text, f'missing body close in {name}'
+                  text = text.replace('</body>', marker + '</body>', 1)
+              path.write_text(text)
+
+          # Privacy policy: canonical domain + transparent Sentry disclosure.
+          privacy = Path('public/privacy.html')
+          text = privacy.read_text()
+          if '<link rel="canonical" href="https://calendaria.dev/privacy.html">' not in text:
+              text = text.replace(
+                  '  <meta name="robots" content="index,follow">\n',
+                  '  <meta name="robots" content="index,follow">\n  <link rel="canonical" href="https://calendaria.dev/privacy.html">\n',
+                  1,
+              )
+          text = text.replace('Última actualización: 14 de agosto de 2026', 'Última actualización: 17 de septiembre de 2026')
+          text = text.replace(
+              'Google Gemini API, Render y recursos tipográficos de Google Fonts.',
+              'Google Gemini API, Supabase, Sentry, Render y recursos tipográficos de Google Fonts.',
+              1,
+          )
+          technical_anchor = '<p>Los logs de CalendarIA no están diseñados para registrar deliberadamente el texto analizado, imágenes, audio, tokens OAuth, refresh tokens, claves de API ni títulos de eventos.</p>'
+          sentry_technical = technical_anchor + '\n        <p>Cuando la observabilidad con Sentry está habilitada, CalendarIA puede enviar excepciones, metadatos técnicos de diagnóstico, trazas de rendimiento muestreadas y sesiones de interfaz muestreadas. La configuración evita enviar PII por defecto, filtra cabeceras sensibles como <code>Authorization</code>, cookies y tokens CSRF, y no adjunta cuerpos de solicitud ni query strings a los errores del servidor. En Session Replay, el texto, los campos de entrada y los recursos multimedia se enmascaran o bloquean antes del envío.</p>'
+          if sentry_technical not in text:
+              assert technical_anchor in text, 'privacy technical anchor missing'
+              text = text.replace(technical_anchor, sentry_technical, 1)
+          provider_anchor = '<li><strong>Render:</strong> infraestructura de alojamiento y ejecución del servidor.</li>'
+          sentry_provider = provider_anchor + '\n          <li><strong>Sentry:</strong> monitoreo de errores, rendimiento y Session Replay muestreado con controles de privacidad para diagnosticar fallos de la aplicación.</li>'
+          if sentry_provider not in text:
+              assert provider_anchor in text, 'privacy provider anchor missing'
+              text = text.replace(provider_anchor, sentry_provider, 1)
+          logs_anchor = '<p>Los logs operativos pueden ser conservados por la infraestructura de alojamiento durante el periodo configurado por el proveedor. CalendarIA intenta limitar sus propios mensajes de log a información operativa y de seguridad necesaria para diagnosticar errores y abuso.</p>'
+          sentry_logs = logs_anchor + '\n        <p>Los eventos y replays enviados a Sentry están sujetos a la retención configurada en la cuenta de Sentry utilizada por CalendarIA. El muestreo se mantiene limitado para reducir la recopilación y el consumo de cuota.</p>'
+          if sentry_logs not in text:
+              assert logs_anchor in text, 'privacy logs anchor missing'
+              text = text.replace(logs_anchor, sentry_logs, 1)
+          privacy.write_text(text)
+
+          # README domain + observability environment documentation.
+          readme = Path('README.md')
+          text = readme.read_text()
+          if '![Sentry]' not in text:
+              text = text.replace(
+                  '![Render](https://img.shields.io/badge/Deploy-Render-000000?logo=render&logoColor=white)\n',
+                  '![Render](https://img.shields.io/badge/Deploy-Render-000000?logo=render&logoColor=white)\n![Sentry](https://img.shields.io/badge/Observability-Sentry-362D59?logo=sentry&logoColor=white)\n',
+                  1,
+              )
+          env_anchor = 'SESSION_SECRET\nAPP_BASE_URL\nGEMINI_API_KEY'
+          env_replacement = 'SESSION_SECRET\nAPP_BASE_URL\nSENTRY_DSN\nSENTRY_ENVIRONMENT\nSENTRY_TRACES_SAMPLE_RATE\nSENTRY_BROWSER_TRACES_SAMPLE_RATE\nSENTRY_REPLAYS_SESSION_SAMPLE_RATE\nSENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE\nGEMINI_API_KEY'
+          if env_anchor in text:
+              text = text.replace(env_anchor, env_replacement, 1)
+          privacy_anchor = 'CalendarIA no mantiene una base de datos propia de perfiles o eventos. El frontend elimina claves heredadas de almacenamiento local y no utiliza `localStorage` como fuente de verdad.\n'
+          sentry_readme = privacy_anchor + '\nLa observabilidad de producción utiliza **Sentry** de forma opcional mediante `SENTRY_DSN`. El backend usa el SDK oficial de Node y el navegador activa errores, tracing y Replay solo cuando existe configuración. `sendDefaultPii` permanece desactivado y Replay enmascara texto, inputs y contenido multimedia.\n'
+          if sentry_readme not in text:
+              assert privacy_anchor in text, 'README privacy anchor missing'
+              text = text.replace(privacy_anchor, sentry_readme, 1)
+          readme.write_text(text)
+
+          # Render Blueprint defaults. The DSN remains user/account specific.
+          render = Path('render.yaml')
+          text = render.read_text()
+          sentry_env = '''      - key: SENTRY_DSN
+                sync: false
+              - key: SENTRY_ENVIRONMENT
+                value: production
+              - key: SENTRY_TRACES_SAMPLE_RATE
+                value: "0.10"
+              - key: SENTRY_BROWSER_TRACES_SAMPLE_RATE
+                value: "0.05"
+              - key: SENTRY_REPLAYS_SESSION_SAMPLE_RATE
+                value: "0.02"
+              - key: SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE
+                value: "1.0"
+'''
+          if '- key: SENTRY_DSN' not in text:
+              anchor = '      - key: SUPABASE_URL\n        value: https://synuwdoinjjcihyzfvon.supabase.co\n'
+              assert anchor in text, 'render Supabase anchor missing'
+              text = text.replace(anchor, anchor + sentry_env, 1)
+          render.write_text(text)
+
+          # Ensure root-level instrument.js is checked by npm run check.
+          checks = Path('scripts/check-syntax.js')
+          text = checks.read_text()
+          text = text.replace("const ROOT_FILES = ['server.js'];", "const ROOT_FILES = ['instrument.js', 'server.js'];")
+          checks.write_text(text)
+
+          # Express/Sentry integration. instrument.js must load before Express.
+          server = Path('server.js')
+          text = server.read_text()
+          anchor = "'use strict';\n\nconst crypto = require('crypto');"
+          replacement = "'use strict';\n\nconst { Sentry, enabled: sentryEnabled } = require('./instrument');\nconst crypto = require('crypto');"
+          assert anchor in text, 'server top anchor missing'
+          text = text.replace(anchor, replacement, 1)
+          text = text.replace(
+              '    "script-src \'self\'",',
+              '    "script-src \'self\' https://browser.sentry-cdn.com",',
+              1,
+          )
+          text = text.replace(
+              '    "connect-src \'self\'",',
+              '    "connect-src \'self\' https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",',
+              1,
+          )
+          health_anchor = '''app.get('/health', (req, res) => {
+            res.status(200).json({
+              ok: true,
+              service: 'calendaria',
+              integrations: config.integrations,
+            });
+          });
+'''
+          observability_route = health_anchor + '''
+          app.get('/api/observability/config', (req, res) => {
+            res.json({
+              enabled: config.sentry.enabled,
+              dsn: config.sentry.enabled ? config.sentry.dsn : '',
+              environment: config.sentry.environment,
+              release: config.sentry.release,
+              tracesSampleRate: config.sentry.browserTracesSampleRate,
+              replaysSessionSampleRate: config.sentry.replaysSessionSampleRate,
+              replaysOnErrorSampleRate: config.sentry.replaysOnErrorSampleRate,
+            });
+          });
+'''
+          if '/api/observability/config' not in text:
+              assert health_anchor in text, 'health anchor missing'
+              text = text.replace(health_anchor, observability_route, 1)
+          oauth_log = """    if (!error.statusCode || error.statusCode >= 500) {
+              console.error(JSON.stringify({ requestId: req.requestId, code: error.code || 'OAUTH_ERROR', message: error.message }));
+            }
+            return res.redirect('/?auth=error');"""
+          oauth_capture = """    if (!error.statusCode || error.statusCode >= 500) {
+              console.error(JSON.stringify({ requestId: req.requestId, code: error.code || 'OAUTH_ERROR', message: error.message }));
+              if (sentryEnabled) {
+                Sentry.withScope((scope) => {
+                  scope.setTag('request_id', req.requestId);
+                  scope.setTag('flow', 'google_oauth_callback');
+                  Sentry.captureException(error);
+                });
+              }
+            }
+            return res.redirect('/?auth=error');"""
+          assert oauth_log in text, 'oauth error anchor missing'
+          text = text.replace(oauth_log, oauth_capture, 1)
+          error_anchor = '''app.use((error, req, res, next) => {
+            if (res.headersSent) return next(error);
+'''
+          sentry_error_handler = '''if (sentryEnabled) {
+            Sentry.setupExpressErrorHandler(app);
+          }
+
+          app.use((error, req, res, next) => {
+            if (res.headersSent) return next(error);
+'''
+          assert error_anchor in text, 'error handler anchor missing'
+          text = text.replace(error_anchor, sentry_error_handler, 1)
+          server_error_anchor = '''server.on('error', (error) => {
+            console.error('Error iniciando servidor:', error.message || error);
+            process.exit(1);
+          });'''
+          server_error_replacement = '''server.on('error', (error) => {
+            console.error('Error iniciando servidor:', error.message || error);
+            if (sentryEnabled) Sentry.captureException(error);
+            process.exit(1);
+          });'''
+          assert server_error_anchor in text, 'server error anchor missing'
+          text = text.replace(server_error_anchor, server_error_replacement, 1)
+          server.write_text(text)
+          PY
+          git diff --check
+      - name: Commit patch
+        shell: bash
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "CalendarIA CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add README.md public/index.html public/welcome.html public/privacy.html scripts/patch-open-graph.js render.yaml scripts/check-syntax.js server.js
+          git commit -m "Configure calendaria.dev and Sentry [domain-sentry-patch]"
+          git push origin HEAD:${GITHUB_REF_NAME}
