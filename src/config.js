@@ -24,6 +24,12 @@ function normalizeBaseUrl(value) {
   return String(value || 'http://localhost:3000').replace(/\/+$/, '');
 }
 
+function sampleRate(name, fallback) {
+  const parsed = Number.parseFloat(readEnv(name));
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(1, Math.max(0, parsed));
+}
+
 const sessionSecret = requireCoreEnv('SESSION_SECRET', isProduction ? '' : 'dev-only-change-this-session-secret');
 if (Buffer.byteLength(sessionSecret, 'utf8') < 32) {
   throw new Error('SESSION_SECRET debe tener al menos 32 bytes');
@@ -33,6 +39,9 @@ const geminiApiKey = readEnv('GEMINI_API_KEY', 'GOOGLE_API_KEY', 'API_KEY_GEMINI
 const googleClientId = readEnv('GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_AUTH_API_KEY');
 const googleClientSecret = readEnv('GOOGLE_OAUTH_CLIENT_SECRET');
 const supabaseUrl = readEnv('SUPABASE_URL');
+const sentryDsn = readEnv('SENTRY_DSN');
+const sentryEnvironment = readEnv('SENTRY_ENVIRONMENT') || (isProduction ? 'production' : 'development');
+const sentryRelease = readEnv('SENTRY_RELEASE', 'RENDER_GIT_COMMIT');
 
 const integrations = Object.freeze({
   gemini: Boolean(geminiApiKey),
@@ -49,6 +58,15 @@ const config = Object.freeze({
   googleClientId,
   googleClientSecret,
   supabaseUrl: supabaseUrl ? normalizeBaseUrl(supabaseUrl) : '',
+  sentry: Object.freeze({
+    enabled: Boolean(sentryDsn),
+    dsn: sentryDsn,
+    environment: sentryEnvironment,
+    release: sentryRelease,
+    browserTracesSampleRate: sampleRate('SENTRY_BROWSER_TRACES_SAMPLE_RATE', isProduction ? 0.05 : 0),
+    replaysSessionSampleRate: sampleRate('SENTRY_REPLAYS_SESSION_SAMPLE_RATE', isProduction ? 0.02 : 0),
+    replaysOnErrorSampleRate: sampleRate('SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE', isProduction ? 1 : 0),
+  }),
   integrations,
   sessionSecret,
   sessionKey: crypto.createHash('sha256').update(sessionSecret).digest(),

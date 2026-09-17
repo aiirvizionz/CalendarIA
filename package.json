@@ -10,6 +10,7 @@
     "ci": "npm run check && npm test"
   },
   "dependencies": {
+    "@sentry/node": "10.75.0",
     "dotenv": "^17.4.2",
     "express": "^4.21.2"
   },

@@ -6,7 +6,7 @@ const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const INCLUDED_DIRS = ['public/js', 'src', 'scripts', 'test'];
-const ROOT_FILES = ['server.js'];
+const ROOT_FILES = ['instrument.js', 'server.js'];
 
 function collectJavaScript(directory) {
   const absolute = path.join(ROOT, directory);

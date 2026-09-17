@@ -1,5 +1,6 @@
 'use strict';
 
+const { Sentry, enabled: sentryEnabled } = require('./instrument');
 const crypto = require('crypto');
 const path = require('path');
 const express = require('express');
@@ -56,12 +57,12 @@ function securityHeaders(req, res, next) {
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self' https://accounts.google.com",
-    "script-src 'self'",
+    "script-src 'self' https://browser.sentry-cdn.com",
     "style-src 'self' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https://*.googleusercontent.com",
     "media-src 'self' blob:",
-    "connect-src 'self'",
+    "connect-src 'self' https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
   ];
   if (config.isProduction) csp.push('upgrade-insecure-requests');
 
@@ -176,6 +177,18 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.get('/api/observability/config', (req, res) => {
+  res.json({
+    enabled: config.sentry.enabled,
+    dsn: config.sentry.enabled ? config.sentry.dsn : '',
+    environment: config.sentry.environment,
+    release: config.sentry.release,
+    tracesSampleRate: config.sentry.browserTracesSampleRate,
+    replaysSessionSampleRate: config.sentry.replaysSessionSampleRate,
+    replaysOnErrorSampleRate: config.sentry.replaysOnErrorSampleRate,
+  });
+});
+
 app.get('/welcome', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
   return res.sendFile(path.join(publicDir, 'welcome.html'));
@@ -272,6 +285,13 @@ app.get('/api/auth/google/callback', requireGoogleIntegration, async (req, res) 
   } catch (error) {
     if (!error.statusCode || error.statusCode >= 500) {
       console.error(JSON.stringify({ requestId: req.requestId, code: error.code || 'OAUTH_ERROR', message: error.message }));
+      if (sentryEnabled) {
+        Sentry.withScope((scope) => {
+          scope.setTag('request_id', req.requestId);
+          scope.setTag('flow', 'google_oauth_callback');
+          Sentry.captureException(error);
+        });
+      }
     }
     return res.redirect('/?auth=error');
   }
@@ -448,6 +468,10 @@ app.use((req, res) => {
   res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Recurso no encontrado' } });
 });
 
+if (sentryEnabled) {
+  Sentry.setupExpressErrorHandler(app);
+}
+
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
 
@@ -505,6 +529,7 @@ server.keepAliveTimeout = 5_000;
 
 server.on('error', (error) => {
   console.error('Error iniciando servidor:', error.message || error);
+  if (sentryEnabled) Sentry.captureException(error);
   process.exit(1);
 });
 
