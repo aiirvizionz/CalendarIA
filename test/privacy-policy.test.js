@@ -35,11 +35,13 @@ test('la política divulga el uso esencial y actual de datos de Google', () => {
   assert.match(policy, /store: false/);
   assert.match(policy, /Cerrar sesión y revocar el acceso son acciones diferentes/);
   assert.match(policy, /no vende datos de Google/i);
+  assert.match(policy, /Sentry/);
+  assert.match(policy, /Session Replay/);
 });
 
 test('la política mantiene fecha actualizada y canal público de contacto', () => {
   const policy = readPublicFile('privacy.html');
-  assert.match(policy, /Última actualización: 14 de agosto de 2026/);
+  assert.match(policy, /Última actualización: 17 de septiembre de 2026/);
   assert.match(policy, /https:\/\/github\.com\/aiirvizionz\/CalendarIA\/issues/);
   assert.match(policy, /David Alejandro Lopez Huerta/);
 });
