@@ -11,6 +11,7 @@ function currentRoute() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   if (path === '/welcome') return 'welcome';
   if (path === '/privacy' || path === '/privacy.html') return 'privacy';
+  if (path === '/terms' || path === '/terms.html') return 'terms';
   return 'app';
 }
 
@@ -26,6 +27,7 @@ function footerMarkup(active) {
         <a class="calendar-footer-link" href="/"${current('app')}>Aplicación</a>
         <a class="calendar-footer-link" href="/welcome"${current('welcome')}>Bienvenida</a>
         <a class="calendar-footer-link" href="/privacy.html"${current('privacy')}>Privacidad</a>
+        <a class="calendar-footer-link" href="/terms.html"${current('terms')}>Términos</a>
         <a class="calendar-footer-link" href="https://github.com/aiirvizionz/CalendarIA" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
       </nav>
       <p class="calendar-footer-copy">© 2026 CalendarIA · David Alejandro Lopez Huerta</p>
