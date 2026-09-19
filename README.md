@@ -11,7 +11,7 @@
 ![Render](https://img.shields.io/badge/Deploy-Render-000000?logo=render&logoColor=white)
 ![Sentry](https://img.shields.io/badge/Observability-Sentry-362D59?logo=sentry&logoColor=white)
 
-**[Abrir CalendarIA](https://calendaria.dev/)** · **[Política de privacidad](https://calendaria.dev/privacy.html)**
+**[Abrir CalendarIA](https://calendaria.dev/)** · **[Política de privacidad](https://calendaria.dev/privacy.html)** · **[Términos de servicio](https://calendaria.dev/terms.html)**
 
 </div>
 
@@ -407,13 +407,17 @@ npm run ci
 
 ---
 
-## Política de privacidad
+## Políticas públicas
 
-La política pública se encuentra en:
+La política de privacidad se encuentra en:
 
 **https://calendaria.dev/privacy.html**
 
-La versión del repositorio está en [`public/privacy.html`](public/privacy.html).
+Los Términos de servicio se encuentran en:
+
+**https://calendaria.dev/terms.html**
+
+Las versiones del repositorio están en [`public/privacy.html`](public/privacy.html) y [`public/terms.html`](public/terms.html).
 
 ---
 
