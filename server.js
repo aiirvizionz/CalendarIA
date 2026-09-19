@@ -194,6 +194,11 @@ app.get('/welcome', (req, res) => {
   return res.sendFile(path.join(publicDir, 'welcome.html'));
 });
 
+app.get('/terms', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  return res.sendFile(path.join(publicDir, 'terms.html'));
+});
+
 app.get('/api/session', (req, res) => {
   const session = readSession(req);
   if (!session) {
