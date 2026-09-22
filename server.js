@@ -206,19 +206,59 @@ app.get('/terms', (req, res) => {
 });
 
 app.get('/api/session', async (req, res, next) => {
-  const session = readSession(req);
-  if (!session) {
-    return res.json({
-      authenticated: false,
-      integrations: config.integrations,
-    });
-  }
+  let session = readSession(req);
 
   try {
+    if (!session && config.integrations.google) {
+      const grant = readGoogleGrant(req);
+      if (grant?.refreshToken) {
+        const restored = await ensureAccessToken({
+          user: { sub: grant.sub, email: grant.email || '', name: grant.email || '', picture: '' },
+          accessToken: '',
+          refreshToken: grant.refreshToken,
+          accessTokenExpiresAt: 0,
+          csrfToken: createCsrfToken(),
+        });
+        const profile = await getUserInfo(restored.accessToken);
+        if (!profile?.sub || profile.sub !== grant.sub) {
+          const error = new Error('La concesión de Google ya no coincide con la cuenta original');
+          error.statusCode = 401;
+          error.code = 'GOOGLE_AUTH_EXPIRED';
+          throw error;
+        }
+        session = setSession(res, {
+          user: {
+            sub: profile.sub,
+            name: profile.name || profile.email || grant.email || 'Usuario',
+            email: profile.email || grant.email || '',
+            picture: profile.picture || '',
+          },
+          accessToken: restored.accessToken,
+          refreshToken: restored.session.refreshToken || grant.refreshToken,
+          accessTokenExpiresAt: restored.session.accessTokenExpiresAt,
+          csrfToken: createCsrfToken(),
+        });
+        if (session.refreshToken !== grant.refreshToken || session.user.email !== grant.email) {
+          setGoogleGrant(res, {
+            sub: session.user.sub,
+            email: session.user.email,
+            refreshToken: session.refreshToken,
+          });
+        }
+      }
+    }
+
+    if (!session) {
+      return res.json({
+        authenticated: false,
+        integrations: config.integrations,
+      });
+    }
+
     if (config.integrations.google) {
       const context = await ensureAccessToken(session);
       if (context.refreshed) {
-        req.session = setSession(res, context.session);
+        session = setSession(res, context.session);
         if (context.session.refreshToken !== session.refreshToken) {
           setGoogleGrant(res, { sub: session.user.sub, email: session.user.email, refreshToken: context.session.refreshToken });
         }
@@ -327,6 +367,7 @@ app.get('/api/auth/google/callback', requireGoogleIntegration, async (req, res) 
 
 app.post('/api/auth/logout', requireSession, requireCsrf, (req, res) => {
   clearSession(req, res);
+  clearGoogleGrant(res);
   res.status(204).end();
 });
 
