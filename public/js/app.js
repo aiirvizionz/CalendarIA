@@ -7,6 +7,7 @@ import {
   logout,
   startGoogleAuth,
 } from './api.js';
+import './navigation.js';
 import { readImage, startAudioCapture } from './media.js';
 
 const CATEGORY_LABELS = Object.freeze({
@@ -423,6 +424,7 @@ async function refreshGoogleEvents({ silent = false } = {}) {
   } catch (error) {
     if (error?.code === 'GOOGLE_AUTH_EXPIRED' || error?.code === 'AUTH_REQUIRED') {
       state.session = { authenticated: false, integrations: state.session.integrations };
+      window.dispatchEvent(new CustomEvent('calendaria:session-updated', { detail: state.session }));
       state.calendarEvents = [];
       state.calendarEventsLoaded = false;
       showToast('Tu conexión con Google expiró. Inicia sesión nuevamente.', 'error');
@@ -761,6 +763,7 @@ async function initialize() {
   bindEvents();
   window.addEventListener('calendaria:session-expired', () => {
     state.session = { authenticated: false, integrations: state.session.integrations };
+    window.dispatchEvent(new CustomEvent('calendaria:session-updated', { detail: state.session }));
     state.calendarEvents = [];
     state.calendarEventsLoaded = false;
     updateAuthUI();
@@ -772,6 +775,7 @@ async function initialize() {
 
   try {
     state.session = await loadSession();
+    window.dispatchEvent(new CustomEvent('calendaria:session-updated', { detail: state.session }));
      if (state.session.authExpired) showToast('Tu sesión de Google expiró. Vuelve a conectarte.', 'error');
   } catch (error) {
     showToast(errorMessage(error), 'error');
