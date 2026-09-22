@@ -51,7 +51,9 @@ function createAuthorizationRequest() {
     scope: OAUTH_SCOPES.join(' '),
     include_granted_scopes: 'true',
     access_type: 'offline',
-    prompt: 'consent',
+    // Offline consent is requested only when Google has not already granted it.
+    // Repeated forced consent can invalidate older refresh tokens.
+
     state,
     code_challenge: challenge,
     code_challenge_method: 'S256',
@@ -129,7 +131,18 @@ async function refreshAccessToken(refreshToken) {
       grant_type: 'refresh_token',
     }),
   });
-  return readGoogleResponse(response, 'No se pudo renovar la sesión de Google');
+  if (!response.ok) {
+    let payload = null;
+    try { payload = await response.json(); } catch { /* Provider may return non-JSON. */ }
+    const permanent = ['invalid_grant', 'invalid_client', 'unauthorized_client'].includes(payload?.error);
+    const error = new Error(permanent
+      ? 'Tu autorización de Google expiró o fue revocada. Vuelve a iniciar sesión.'
+      : 'Google no pudo renovar la sesión temporalmente. Intenta de nuevo.');
+    error.statusCode = permanent ? 401 : 503;
+    error.code = permanent ? 'GOOGLE_AUTH_EXPIRED' : 'GOOGLE_REFRESH_UNAVAILABLE';
+    throw error;
+  }
+  return response.json();
 }
 
 async function getUserInfo(accessToken) {
@@ -149,6 +162,7 @@ async function ensureAccessToken(session) {
     ...session,
     accessToken: tokens.access_token,
     accessTokenExpiresAt: Date.now() + Number(tokens.expires_in || 3600) * 1000,
+    refreshToken: tokens.refresh_token || session.refreshToken,
   };
   return { accessToken: updatedSession.accessToken, session: updatedSession, refreshed: true };
 }
