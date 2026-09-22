@@ -7,8 +7,8 @@ const path = require('node:path');
 
 const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 
-test('el inicio OAuth omite prompt=consent cuando ya existe un refresh token guardado', () => {
-  assert.match(serverSource, /if \(readGoogleGrant\(req\)\) \{\s*authorizationUrl\.searchParams\.delete\('prompt'\);/);
+test('el inicio OAuth solo fuerza consentimiento si no existe una autorización persistente', () => {
+  assert.match(serverSource, /if \(!readGoogleGrant\(req\)\) authorizationUrl\.searchParams\.set\('prompt', 'consent'\);/);
 });
 
 test('cerrar sesión no revoca Google y desconectar sí lo hace', () => {
