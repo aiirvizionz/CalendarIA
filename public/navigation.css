@@ -110,3 +110,251 @@ html[data-calendar-theme="light"] .events-card .event-card { background:#f8f6f2;
 html[data-calendar-theme="light"] .footer-panel {background:#fffcf9;border-color:#e5dfd9;}
 .event-category-color-picker {z-index:2700 !important;}
 #eventCategoriesRetryButton {margin:10px 0 14px;}
+
+/* ===== UI alignment & theme parity (2026-09-22) =====
+   Geometry is intentionally theme-independent. Theme selection only changes
+   appearance, never the size or placement of the application. */
+.site-header {
+  width: min(calc(100% - 64px), var(--max-width));
+  min-height: 86px;
+}
+.app-shell {
+  width: min(calc(100% - 64px), var(--max-width));
+  padding-top: 4px;
+  padding-bottom: 28px;
+}
+.workspace {
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, .75fr);
+  gap: 14px;
+  align-items: stretch;
+}
+.tabs {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+.tab {
+  min-height: 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border-radius: 0;
+  border-right: 1px solid rgba(18,19,22,.08);
+  font-size: .78rem;
+  font-weight: 700;
+}
+.tab:last-child { border-right: 0; }
+.panel-wrap { padding: 28px 30px 30px; }
+.panel { min-height: 500px; }
+
+/* Light mode keeps exactly the same shell geometry as dark mode. */
+html[data-calendar-theme="light"] body {
+  color: #17191d;
+}
+html[data-calendar-theme="light"] .composer-card {
+  background: linear-gradient(145deg,#f6f2ed,#eae5df);
+  border-color: rgba(20,21,24,.12);
+  box-shadow: 0 28px 72px rgba(31,28,24,.14);
+  backdrop-filter: none;
+}
+html[data-calendar-theme="light"] .tab {
+  color: #575960;
+  background: rgba(255,255,255,.12);
+}
+html[data-calendar-theme="light"] .tab:hover {
+  color: #111316;
+  background: rgba(17,19,22,.05);
+}
+html[data-calendar-theme="light"] .tab.is-active {
+  color: #f7f3ed;
+  background: linear-gradient(135deg,#181a1e,#0f1114);
+  box-shadow: none;
+}
+html[data-calendar-theme="light"] .panel-wrap,
+html[data-calendar-theme="light"] .panel,
+html[data-calendar-theme="light"] .field,
+html[data-calendar-theme="light"] .field-grid,
+html[data-calendar-theme="light"] form,
+html[data-calendar-theme="light"] fieldset {
+  min-width: 0;
+}
+
+/* Desktop rail: optical centering, uniform icon boxes and cleaner spacing. */
+@media (min-width: 768px) {
+  .app-sidebar {
+    width: 66px;
+    padding-inline: 9px;
+  }
+  .nav-group { align-items: center; }
+  .nav-item,
+  .nav-brand {
+    display: grid;
+    place-items: center;
+    padding: 0;
+    margin-inline: auto;
+  }
+  .nav-item { width: 46px; height: 46px; }
+  .nav-item > svg {
+    display: block;
+    width: 23px;
+    height: 23px;
+    margin: 0;
+    flex: none;
+    overflow: visible;
+    vector-effect: non-scaling-stroke;
+  }
+  .nav-item[data-nav="settings"] > svg { width: 24px; height: 24px; }
+  .nav-item[data-nav="categories"] > svg { width: 22px; height: 22px; }
+  .nav-avatar,
+  .nav-avatar-fallback {
+    width: 30px;
+    height: 30px;
+    margin: 0;
+    flex: none;
+  }
+  .nav-divider { margin-inline: auto; }
+}
+
+/* Events panel always mirrors the creator card's measured height.
+   Its header remains fixed while the content below scrolls. */
+.events-card {
+  height: var(--workspace-card-height, auto) !important;
+  min-height: 0 !important;
+  max-height: var(--workspace-card-height, none) !important;
+  overflow: hidden !important;
+  position: sticky;
+  display: flex;
+  flex-direction: column;
+}
+.events-heading {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+.events-list,
+.events-calendar-view {
+  min-height: 0;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+.events-list { flex: 1 1 auto; }
+.events-calendar-view { flex: 1 1 auto; }
+
+/* Mobile header: only the hamburger + account affordance.
+   The CalendarIA identity remains available inside the opened drawer. */
+.mobile-drawer-close { display: none; }
+@media (max-width: 767px) {
+  .site-header {
+    min-height: 64px !important;
+    padding: 0 !important;
+    width: calc(100% - 24px) !important;
+  }
+  .site-header > .brand { display: none !important; }
+  .mobile-nav-toggle {
+    display: grid;
+    place-items: center;
+    position: static;
+    transform: none;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border: 0 !important;
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none !important;
+    opacity: 1;
+    color: currentColor;
+    cursor: pointer;
+  }
+  .mobile-nav-toggle:hover,
+  .mobile-nav-toggle:focus-visible,
+  .mobile-nav-toggle:active {
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none;
+  }
+  .mobile-nav-toggle svg {
+    width: 34px;
+    height: 34px;
+    stroke-width: 2.15;
+  }
+  .account-area { margin-left: auto !important; }
+
+  .app-sidebar {
+    padding-top: 24px;
+    padding-right: 16px;
+    transform: translate3d(-105%,0,0);
+    transition: transform .3s cubic-bezier(.22,.72,.2,1), box-shadow .3s ease;
+    will-change: transform;
+  }
+  body.is-nav-open .app-sidebar { transform: translate3d(0,0,0); }
+  .app-sidebar .nav-brand {
+    width: calc(100% - 58px);
+    margin: 0 0 20px;
+  }
+  .mobile-drawer-close {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    top: 22px;
+    right: 18px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #17191d;
+    cursor: pointer;
+    opacity: 0;
+    transform: rotate(-35deg) scale(.84);
+    transition: opacity .2s ease .08s, transform .28s cubic-bezier(.22,.72,.2,1) .06s, background .16s ease;
+  }
+  body.is-nav-open .mobile-drawer-close {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+  .mobile-drawer-close:hover,
+  .mobile-drawer-close:focus-visible { background: #efebe7; }
+  .mobile-drawer-close svg {
+    width: 30px;
+    height: 30px;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    fill: none;
+    stroke-linecap: round;
+  }
+  .app-sidebar .nav-item {
+    opacity: .7;
+    transform: translateX(-8px);
+    transition: opacity .2s ease, transform .26s ease, background .16s ease;
+  }
+  body.is-nav-open .app-sidebar .nav-item {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  body.is-nav-open .app-sidebar .nav-group:first-child .nav-item:nth-of-type(2) { transition-delay: .035s; }
+  body.is-nav-open .app-sidebar .nav-group:first-child .nav-item:nth-of-type(3) { transition-delay: .055s; }
+  body.is-nav-open .app-sidebar .nav-group:first-child .nav-item:nth-of-type(4) { transition-delay: .075s; }
+
+  .events-card {
+    position: static !important;
+    height: var(--workspace-card-height, 560px) !important;
+    min-height: 0 !important;
+    max-height: var(--workspace-card-height, 560px) !important;
+  }
+  .events-list,
+  .events-calendar-view {
+    overflow-y: auto !important;
+    max-height: none !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobile-drawer-close,
+  .app-sidebar .nav-item { transition: none !important; }
+}
