@@ -31,3 +31,29 @@ test('la app mantiene acceso a Google mientras vence el token y ofrece una salid
   assert.match(api,/calendaria:session-expired/);
   assert.match(nav,/data-nav-disconnect/);
 });
+
+test('tema claro conserva la misma geometría e iconos compactos que el tema oscuro',()=>{
+  const styles=read('public/navigation.css');
+  assert.match(styles,/\.workspace\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1\.55fr\) minmax\(300px, \.75fr\)/);
+  assert.match(styles,/\.tab-icon\s*\{[\s\S]*width:\s*18px;[\s\S]*height:\s*18px/);
+  assert.match(styles,/\.brand-logo,[\s\S]*\.footer-brand-logo[\s\S]*width:\s*38px/);
+  assert.match(styles,/html\[data-calendar-theme="light"\] \.composer-card/);
+});
+test('menú móvil usa hamburger sin borde y una X animada dentro del drawer',()=>{
+  const nav=read('public/js/navigation.js');
+  const styles=read('public/navigation.css');
+  assert.match(nav,/mobileDrawerClose/);
+  assert.match(nav,/M5 5l14 14M19 5 5 19/);
+  assert.match(styles,/\.mobile-nav-toggle\s*\{[\s\S]*border:\s*0\s*!important/);
+  assert.match(styles,/\.site-header > \.brand\s*\{\s*display:\s*none\s*!important/);
+  assert.match(styles,/\.mobile-drawer-close\s*\{[\s\S]*right:\s*18px/);
+});
+test('Tus eventos iguala la altura del compositor y desplaza solo el contenido',()=>{
+  const nav=read('public/js/navigation.js');
+  const styles=read('public/navigation.css');
+  assert.match(nav,/ResizeObserver/);
+  assert.match(nav,/--workspace-card-height/);
+  assert.match(styles,/\.events-card\s*\{[\s\S]*height:\s*var\(--workspace-card-height/);
+  assert.match(styles,/\.events-list,[\s\S]*\.events-calendar-view\s*\{[\s\S]*overflow-y:\s*auto\s*!important/);
+  assert.match(styles,/\.events-heading\s*\{[\s\S]*flex:\s*0 0 auto/);
+});
