@@ -85,6 +85,13 @@ async function readGoogleResponse(response, fallbackMessage) {
   }
 
   if (!response.ok) {
+    const providerCode = typeof payload?.error === 'string' ? payload.error : '';
+    if (fallbackMessage === 'No se pudo renovar la sesión de Google' && providerCode === 'invalid_grant') {
+      const expired = new Error('La autorización de Google expiró o fue revocada. Vuelve a conectar tu cuenta.');
+      expired.statusCode = 401;
+      expired.code = 'GOOGLE_RECONNECT_REQUIRED';
+      throw expired;
+    }
     const message = normalizeModelSafeText(payload?.error_description || payload?.error?.message || fallbackMessage);
     const error = new Error(message || fallbackMessage);
     error.statusCode = response.status === 401 ? 401 : 502;
@@ -113,9 +120,9 @@ async function exchangeAuthorizationCode(code, verifier) {
 
 async function refreshAccessToken(refreshToken) {
   if (!refreshToken) {
-    const error = new Error('La sesión de Google expiró');
+    const error = new Error('Tu sesión de Google necesita una nueva autorización');
     error.statusCode = 401;
-    error.code = 'GOOGLE_AUTH_EXPIRED';
+    error.code = 'GOOGLE_RECONNECT_REQUIRED';
     throw error;
   }
 
@@ -139,8 +146,8 @@ async function getUserInfo(accessToken) {
   return readGoogleResponse(response, 'No se pudo obtener el perfil de Google');
 }
 
-async function ensureAccessToken(session) {
-  if (session.accessToken && Number(session.accessTokenExpiresAt) > Date.now() + 60_000) {
+async function ensureAccessToken(session, forceRefresh = false) {
+  if (!forceRefresh && session.accessToken && Number(session.accessTokenExpiresAt) > Date.now() + 60_000) {
     return { accessToken: session.accessToken, session, refreshed: false };
   }
 
@@ -148,6 +155,7 @@ async function ensureAccessToken(session) {
   const updatedSession = {
     ...session,
     accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token || session.refreshToken,
     accessTokenExpiresAt: Date.now() + Number(tokens.expires_in || 3600) * 1000,
   };
   return { accessToken: updatedSession.accessToken, session: updatedSession, refreshed: true };
@@ -465,6 +473,7 @@ module.exports = {
   listCalendarEvents,
   normalizeCalendarEvent,
   parseRecurrenceRule,
+  refreshAccessToken,
   revokeToken,
   selectUpcomingOwnedEvents,
   updateCalendarEvent,
