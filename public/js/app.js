@@ -427,7 +427,7 @@ async function refreshGoogleEvents({ silent = false } = {}) {
       window.dispatchEvent(new CustomEvent('calendaria:session-updated', { detail: state.session }));
       state.calendarEvents = [];
       state.calendarEventsLoaded = false;
-      showToast('Tu conexión con Google expiró. Inicia sesión nuevamente.', 'error');
+      // The global session-expired handler already displays the reconnection message.
     } else if (!silent) showToast(errorMessage(error), 'error');
   } finally {
     state.eventsLoading = false;
@@ -660,6 +660,7 @@ function bindEvents() {
     try {
       await logout();
       state.session = { authenticated: false, integrations: state.session.integrations };
+      window.dispatchEvent(new CustomEvent('calendaria:session-updated', { detail: state.session }));
       state.calendarEvents = [];
       state.calendarEventsLoaded = false;
       updateAuthUI();
@@ -776,7 +777,7 @@ async function initialize() {
   try {
     state.session = await loadSession();
     window.dispatchEvent(new CustomEvent('calendaria:session-updated', { detail: state.session }));
-     if (state.session.authExpired) showToast('Tu sesión de Google expiró. Vuelve a conectarte.', 'error');
+    if (state.session.authExpired) showToast('Tu sesión de Google expiró. Vuelve a conectarte.', 'error');
   } catch (error) {
     showToast(errorMessage(error), 'error');
   }
