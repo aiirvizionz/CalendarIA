@@ -116,8 +116,11 @@ function closeModal(){const dialog=document.getElementById('navOverlay');if(dial
 function setMobileOpen(open) {
   document.body.classList.toggle('is-nav-open',open);
   const toggle=document.getElementById('mobileNavToggle');
-  if(toggle)toggle.setAttribute('aria-expanded',String(open));
-  if(open)document.querySelector('#appSidebar [data-nav="home"]')?.focus();
+  if(toggle){
+    toggle.setAttribute('aria-expanded',String(open));
+    toggle.setAttribute('aria-label',open?'Cerrar menú':'Abrir menú');
+  }
+  if(open)window.setTimeout(()=>document.getElementById('mobileDrawerClose')?.focus(),160);
   else if(document.activeElement?.closest?.('#appSidebar'))toggle?.focus();
 }
 function confirmUnsaved() {
@@ -192,6 +195,29 @@ function updateSession(session){
     }
   }
 }
+
+function initWorkspaceCardSizing(){
+  const composer=document.querySelector('.composer-card');
+  const workspace=document.querySelector('.workspace');
+  if(!composer||!workspace)return;
+  let frame=0;
+  const sync=()=>{
+    cancelAnimationFrame(frame);
+    frame=requestAnimationFrame(()=>{
+      const height=Math.ceil(composer.getBoundingClientRect().height);
+      if(height>0)workspace.style.setProperty('--workspace-card-height',height+'px');
+    });
+  };
+  if('ResizeObserver' in window){
+    const observer=new ResizeObserver(sync);
+    observer.observe(composer);
+  }else{
+    window.addEventListener('resize',sync,{passive:true});
+  }
+  window.addEventListener('resize',sync,{passive:true});
+  sync();
+}
+
 function initNavigation(){
   if(document.getElementById('appSidebar'))return;
   const logo='/assets/calendaria-logo.svg';
@@ -200,7 +226,7 @@ function initNavigation(){
     navButton('home','Inicio')+navButton('profile','Perfil')+navButton('categories','Categorías')+
     '<div class="nav-divider"></div>'+navButton('theme','Tema')+navButton('settings','Configuración')+'</div>'+
     '<div class="nav-group">'+navButton('help','Centro de ayuda')+navButton('logout','Cerrar sesión')+'</div>'+
-    '</nav><div id="navScrim" class="nav-scrim" aria-hidden="true"></div>'+
+    '<button id="mobileDrawerClose" class="mobile-drawer-close" type="button" aria-label="Cerrar menú"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></nav><div id="navScrim" class="nav-scrim" aria-hidden="true"></div>'+
     '<dialog id="navOverlay" class="nav-overlay" aria-labelledby="navModalTitle"><div id="navModalContent"></div></dialog>';
   document.body.insertAdjacentHTML('afterbegin',nav);
   const profileIcon=document.querySelector('#appSidebar [data-nav="profile"] svg');
@@ -214,6 +240,7 @@ function initNavigation(){
   mobileButton.setAttribute('aria-controls','appSidebar');mobileButton.innerHTML=navSvg('menu');
   document.querySelector('.site-header')?.prepend(mobileButton);
   mobileButton.addEventListener('click',()=>setMobileOpen(!document.body.classList.contains('is-nav-open')));
+  document.getElementById('mobileDrawerClose')?.addEventListener('click',()=>setMobileOpen(false));
   document.getElementById('navScrim').addEventListener('click',()=>setMobileOpen(false));
   document.getElementById('appSidebar').addEventListener('click',(event)=>{
     const btn=event.target.closest('button[data-nav]');if(btn)navigate(btn.dataset.nav);
@@ -248,6 +275,7 @@ function initNavigation(){
   });
   updateSession(navState.session);
   applyReminderDefaults();
+  initWorkspaceCardSizing();
   const remembered=safeSessionGet(NAV_VIEW_KEY);
   goView(window.location.pathname==='/categorias'||remembered==='categories'?'categories':'home',false);
 }
