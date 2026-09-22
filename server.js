@@ -502,6 +502,12 @@ if (sentryEnabled) {
 
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
+  // A revoked Google access token may fail during an API call even before its
+  // reported expiry. Clear both encrypted cookies so reconnection works immediately.
+  if (error?.code === 'GOOGLE_AUTH_EXPIRED') {
+    clearSession(req, res);
+    clearGoogleGrant(res);
+  }
 
   const reportedStatus = Number(error.statusCode || error.status);
   const statusCode = reportedStatus || (error.type === 'entity.too.large' ? 413 : 500);
