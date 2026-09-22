@@ -1,0 +1,91 @@
+
+/* CalendarIA: responsive application navigation and accessible overlays. */
+:root { --nav-rail-width: 78px; --nav-dialog-bg: #fffcf9; --nav-dialog-text: #17191d; --nav-dialog-muted: #646a73; --nav-dialog-border: #e6e1da; }
+html[data-calendar-theme="dark"] { --nav-dialog-bg: #202124; --nav-dialog-text: #f6f3ef; --nav-dialog-muted: #bbb9b6; --nav-dialog-border: #47474b; }
+@media (min-width: 768px) {
+  body { padding-left: var(--nav-rail-width); }
+  .site-header, .app-shell, .site-footer { max-width: var(--max-width); }
+}
+.app-sidebar { position: fixed; z-index: 1400; inset: 18px auto 18px 14px; width: 64px; padding: 14px 7px; border-radius: 30px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: #101113; color: #fff; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 22px 62px rgba(0,0,0,.26); }
+.nav-group { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 9px; }
+.nav-divider { width: 27px; height: 1px; background: rgba(255,255,255,.17); margin: 9px 0; }
+.nav-item, .nav-brand { color: inherit; border: 0; background: transparent; cursor: pointer; position: relative; width: 46px; height: 46px; border-radius: 16px; display: flex; align-items: center; justify-content: center; flex: none; transition: background .17s ease, transform .17s ease; }
+.nav-item:hover, .nav-item:focus-visible, .nav-item.is-active { background: #323437; }
+.nav-item:active, .nav-brand:active { transform: scale(.95); }
+.nav-item svg, .nav-brand svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.nav-brand { width: 43px; height: 43px; background: #fff; border-radius: 15px; margin-bottom: 17px; padding: 6px; }
+.nav-brand img { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: 7px; }
+.nav-item[data-nav="logout"] { color: #f5d3cf; }
+.nav-caption { position: absolute; top: 50%; left: calc(100% + 12px); transform: translateY(-50%) translateX(-5px); white-space: nowrap; background: #1b1d20; border: 1px solid #45464a; color: #fff; padding: 8px 12px; border-radius: 9px; font-weight: 600; font-size: 12px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .16s, transform .16s; box-shadow: 0 10px 20px #0003; }
+.nav-item:hover .nav-caption, .nav-item:focus-visible .nav-caption { opacity: 1; visibility: visible; transform: translateY(-50%) translateX(0); }
+.nav-avatar { width: 28px; height: 28px; border-radius: 50%; display: block; object-fit: cover; background: #484b50; border: 2px solid #fff; }
+.nav-avatar-fallback { background: #43464a; border-radius: 50%; width: 29px; height: 29px; display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+.mobile-nav-toggle, .nav-scrim { display: none; }
+body:not(.is-categories-view) #eventCategoriesSection { display: none !important; }
+body.is-categories-view .workspace { display: none !important; }
+body.is-categories-view #eventCategoriesSection { display: block !important; width: 100%; margin: 0 auto 30px; }
+body.is-categories-view .app-shell { display: block; }
+.nav-overlay { border: 1px solid var(--nav-dialog-border); padding: 0; width: min(510px, calc(100% - 32px)); max-height: min(800px, calc(100dvh - 32px)); overflow: auto; border-radius: 25px; background: var(--nav-dialog-bg); color: var(--nav-dialog-text); box-shadow: 0 32px 100px #0007; }
+.nav-overlay::backdrop { background: rgba(8,10,13,.65); backdrop-filter: blur(5px); }
+.nav-modal { padding: 27px; min-width: 0; }
+.nav-modal-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+.nav-modal-eyebrow { margin: 0 0 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .2em; color: var(--nav-dialog-muted); }
+.nav-modal h2 { color: var(--nav-dialog-text); margin: 0; font-size: clamp(23px,4vw,29px); line-height: 1.22; letter-spacing: -.04em; }
+.nav-modal-description { color: var(--nav-dialog-muted); line-height: 1.6; margin: 0 0 20px; font-size: 14px; }
+.nav-close { display: grid; place-items: center; width: 39px; height: 39px; flex: none; border-radius: 12px; border: 1px solid var(--nav-dialog-border); background: transparent; cursor: pointer; color: inherit; font-size: 22px; }
+.nav-profile-card { display: flex; align-items: center; gap: 16px; padding: 20px; border: 1px solid var(--nav-dialog-border); background: color-mix(in srgb, var(--nav-dialog-bg) 88%, #b7b6ba 12%); border-radius: 19px; min-width: 0; }
+.nav-profile-photo { width: 70px; height: 70px; border-radius: 50%; flex: none; object-fit: cover; background: #ddd; }
+.nav-profile-initials { width: 70px; height: 70px; display: grid; place-items: center; border-radius: 50%; background: #34363a; color: #fff; flex: none; font-weight: 800; font-size: 24px; }
+.nav-profile-details { min-width: 0; }
+.nav-profile-details strong { display: block; font-size: 17px; overflow-wrap: anywhere; }
+.nav-profile-details p { color: var(--nav-dialog-muted); margin: 4px 0 0; font-size: 13px; overflow-wrap: anywhere; }
+.nav-profile-hint { margin-top: 16px; color: var(--nav-dialog-muted); font-size: 12px; line-height: 1.6; }
+.nav-choice-list { display: grid; gap: 10px; }
+.nav-choice { display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 14px 15px; border: 1px solid var(--nav-dialog-border); border-radius: 14px; font-size: 14px; font-weight: 700; }
+.nav-choice:has(input:checked) { outline: 2px solid var(--nav-dialog-text); outline-offset: -2px; }
+.nav-choice input { accent-color: #111316; width: 17px; height: 17px; }
+.nav-choice small { color: var(--nav-dialog-muted); display: block; font-size: 12px; font-weight: 400; margin-top: 3px; }
+.nav-settings-group { border-top: 1px solid var(--nav-dialog-border); padding: 20px 0; }
+.nav-settings-group h3 { margin: 0 0 10px; font-size: 15px; }
+.nav-settings-group p { color: var(--nav-dialog-muted); font-size: 13px; margin: 0 0 14px; line-height: 1.5; }
+.nav-notifications { display: flex; flex-wrap: wrap; gap: 8px; }
+.nav-notifications label { cursor: pointer; border: 1px solid var(--nav-dialog-border); border-radius: 25px; display: flex; align-items: center; gap: 7px; padding: 9px 12px; font-size: 12px; font-weight: 600; }
+.nav-notifications input { accent-color: #111316; }
+.nav-modal-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+.nav-action { border: 1px solid var(--nav-dialog-border); border-radius: 12px; color: inherit; background: transparent; padding: 12px 17px; font-weight: 700; cursor: pointer; font-size: 13px; }
+.nav-action-primary { background: var(--nav-dialog-text); color: var(--nav-dialog-bg); border-color: var(--nav-dialog-text); }
+.nav-action-danger { color: #d1535a; }
+.nav-help-list { display: grid; gap: 11px; }
+.nav-help-list details { border: 1px solid var(--nav-dialog-border); border-radius: 14px; padding: 13px 15px; }
+.nav-help-list summary { cursor: pointer; font-size: 14px; font-weight: 700; }
+.nav-help-list p { color: var(--nav-dialog-muted); margin: 12px 0 0; font-size: 13px; line-height: 1.6; }
+.nav-help-list button { margin-top: 10px; }
+.nav-badge { display: inline-flex; gap: 6px; align-items: center; background: #e8f6ed; color: #236c45; border-radius: 18px; font-size: 12px; font-weight: 700; padding: 5px 10px; }
+html[data-calendar-theme="dark"] .nav-badge { background: #1c3c30; color: #a1ecc0; }
+html[data-calendar-theme="light"] .site-header .brand, html[data-calendar-theme="light"] .user-chip { color: #1d2027; }
+@media (max-width: 767px) {
+  body { padding-left: 0; }
+  .app-sidebar { inset: 0 auto 0 0; width: min(314px, 86vw); padding: 32px 16px calc(25px + env(safe-area-inset-bottom)); border-radius: 0 28px 28px 0; transform: translateX(-105%); transition: transform .24s ease; overflow-y: auto; align-items: stretch; background: var(--nav-dialog-bg); color: var(--nav-dialog-text); z-index: 2100; box-shadow: 25px 0 80px #0004; }
+  body.is-nav-open .app-sidebar { transform: translateX(0); }
+  .nav-group { align-items: stretch; gap: 5px; }
+  .nav-item { width: 100%; height: 48px; border-radius: 13px; justify-content: flex-start; padding: 0 13px; gap: 17px; font-weight: 600; }
+  .nav-item:hover, .nav-item:focus-visible, .nav-item.is-active { background: color-mix(in srgb,var(--nav-dialog-bg) 84%,var(--nav-dialog-text) 16%); }
+  .nav-caption { position: static; border: 0; box-shadow: none; padding: 0; opacity: 1; visibility: visible; transform: none; color: inherit; background: transparent; font-size: 14px; pointer-events: auto; }
+  .nav-item:hover .nav-caption, .nav-item:focus-visible .nav-caption { transform: none; }
+  .nav-brand { width: auto; height: 61px; background: transparent; border-radius: 10px; justify-content: flex-start; padding: 0 9px; gap: 13px; margin-bottom: 20px; }
+  .nav-brand img { width: 43px; height: 43px; background: #fff; border-radius: 12px; padding: 3px; }
+  .nav-brand::after { content: 'CalendarIA'; font-size: 17px; font-weight: 800; letter-spacing: -.04em; }
+  .nav-divider { width: 100%; background: var(--nav-dialog-border); }
+  .nav-item[data-nav="logout"] { color: #be454b; }
+  .nav-scrim { display: block; position: fixed; inset: 0; z-index: 2000; background: rgba(10,11,14,.48); opacity: 0; pointer-events: none; transition: opacity .24s; }
+  body.is-nav-open .nav-scrim { opacity: 1; pointer-events: auto; }
+  body.is-nav-open { overflow: hidden; }
+  .mobile-nav-toggle { display: grid; place-items: center; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: 12px; cursor: pointer; opacity: .85; }
+  .mobile-nav-toggle svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; }
+  .site-header { position: relative; padding-left: 48px; }
+  .nav-modal { padding: 20px; }
+  .nav-overlay { max-height: calc(100dvh - 24px); width: calc(100% - 24px); border-radius: 21px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar, .nav-scrim, .nav-item, .nav-caption { transition: none; }
+}
