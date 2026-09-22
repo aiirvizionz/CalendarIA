@@ -49,7 +49,7 @@ async function request(url, options = {}) {
   const payload = await readJson(response);
 
   if (!response.ok) {
-    if (response.status === 401 && payload?.error?.code === 'GOOGLE_AUTH_EXPIRED') {
+    if (response.status === 401 && ['GOOGLE_AUTH_EXPIRED', 'AUTH_REQUIRED'].includes(payload?.error?.code)) {
       window.dispatchEvent(new CustomEvent('calendaria:session-expired'));
     }
     const error = new Error(payload?.error?.message || `La solicitud falló (${response.status})`);
