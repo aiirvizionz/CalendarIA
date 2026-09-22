@@ -256,10 +256,11 @@ app.get('/api/session', async (req, res, next) => {
     }
 
     if (config.integrations.google) {
+      const previousRefreshToken = session.refreshToken;
       const context = await ensureAccessToken(session);
       if (context.refreshed) {
         session = setSession(res, context.session);
-        if (context.session.refreshToken !== session.refreshToken) {
+        if (context.session.refreshToken !== previousRefreshToken) {
           setGoogleGrant(res, { sub: session.user.sub, email: session.user.email, refreshToken: context.session.refreshToken });
         }
       }
