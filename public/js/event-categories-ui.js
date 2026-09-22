@@ -130,6 +130,7 @@ function createSection() {
     <div id="eventCategoriesEditor" class="event-categories-editor is-hidden">
       <div id="eventCategoriesList" class="event-categories-list"></div>
       <p id="eventCategoriesError" class="event-categories-error is-hidden" role="alert"></p>
+      <button id="eventCategoriesRetryButton" class="button button-secondary is-hidden" type="button">↻ Reintentar sincronización</button>
 
       <div class="event-categories-toolbar">
         <span id="eventCategoriesToolbarCopy" class="event-categories-toolbar-copy"></span>
@@ -646,6 +647,8 @@ async function loadCategories() {
     state.draft = cloneCategories(categories);
     state.loaded = true;
     state.dirty = false;
+    $('eventCategoriesRetryButton')?.classList.add('is-hidden');
+    setEditorError('');
     renderAccess();
     renderCategoryControls();
     renderEditor();
@@ -654,6 +657,7 @@ async function loadCategories() {
     renderAccess();
     $('eventCategoriesEditor')?.classList.remove('is-hidden');
     setEditorError(errorMessage(error));
+    $('eventCategoriesRetryButton')?.classList.remove('is-hidden');
     setStatus('Error de sincronización');
   }
 }
@@ -783,6 +787,12 @@ async function handleReviewConfirm(event) {
 function bindEvents() {
   $('eventCategoriesAddButton')?.addEventListener('click', addDraftCategory);
   $('eventCategoriesDiscardButton')?.addEventListener('click', discardChanges);
+  $('eventCategoriesRetryButton')?.addEventListener('click', async () => {
+    const button = $('eventCategoriesRetryButton');
+    button.disabled = true;
+    try { await syncSession({ reloadPreferences: true }); }
+    finally { button.disabled = false; }
+  });
   $('eventCategoriesSaveButton')?.addEventListener('click', savePreferences);
   $('eventCategoryColorClose')?.addEventListener('click', closeColorPicker);
   $('eventCategoryColorPicker')?.addEventListener('click', (event) => {
@@ -807,7 +817,15 @@ async function initialize() {
 }
 
 window.addEventListener('calendaria:session-updated', (event) => {
-  if (event.detail?.authenticated) return;
+  if (event.detail?.authenticated) {
+    const wasAuthenticated = state.session.authenticated;
+    state.session = event.detail;
+    state.csrfToken = event.detail.csrfToken || '';
+    if (!wasAuthenticated && !state.loaded && $('eventCategoriesSection')) {
+      window.setTimeout(() => { if (!state.loaded) void loadCategories(); }, 500);
+    }
+    return;
+  }
   state.session = { authenticated: false, integrations: event.detail?.integrations || state.session.integrations };
   state.csrfToken = '';
   state.categories = [];
