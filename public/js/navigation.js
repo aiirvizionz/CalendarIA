@@ -15,7 +15,7 @@ const NAV_ICONS = {
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>'
 };
-const navState = { session: {authenticated:false,integrations:null}, view:'home', theme:'system', media: null, returnFocus:null };
+const navState = { session: {authenticated:false,integrations:null}, view:'home', theme:'dark', media: null, returnFocus:null };
 function navSvg(name) {
   return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (NAV_ICONS[name] || NAV_ICONS.home) + '</svg>';
 }
@@ -42,10 +42,10 @@ function applyTheme() {
 }
 try {
   const savedTheme=safeLocalGet(NAV_THEME_KEY);
-  navState.theme=['light','dark','system'].includes(savedTheme)?savedTheme:'system';
+  navState.theme=['light','dark','system'].includes(savedTheme)?savedTheme:'dark';
   navState.media=window.matchMedia('(prefers-color-scheme: dark)');
   navState.media.addEventListener('change',()=>{if(navState.theme==='system')applyTheme();});
-} catch { navState.theme='system'; }
+} catch { navState.theme='dark'; }
 applyTheme();
 function navButton(action,label) {
   return '<button type="button" class="nav-item" data-nav="' + action + '" title="' + label + '" aria-label="' + label + '">' + navSvg(action) + '<span class="nav-caption" aria-hidden="true">' + label + '</span></button>';
@@ -91,7 +91,7 @@ function openModal(type) {
       '<div class="nav-settings-group"><h3>Avisos predeterminados</h3><p>Estos intervalos se seleccionarán al abrir el formulario manual. Puedes cambiarlos al crear cada evento.</p>'+
       '<div class="nav-notifications">'+NAV_ALLOWED_REMINDERS.map(n=>'<label><input type="checkbox" data-nav-reminder value="'+n+'" '+(reminders.includes(n)?'checked':'')+'>'+NAV_REMINDER_LABELS[n]+'</label>').join('')+'</div></div>'+
       '<div class="nav-settings-group"><h3>Privacidad y control</h3><p>Tus eventos se guardan en Google Calendar después de que confirmas su creación.</p>'+
-      '<a href="/privacy.html" class="nav-action" style="display:inline-block;text-decoration:none">Política de privacidad ↗</a></div>'+
+      '<a href="/privacy.html" class="nav-action nav-action-link">Política de privacidad ↗</a></div>'+
       '<div class="nav-modal-actions"><button type="button" class="nav-action nav-action-primary" data-nav-save>Guardar preferencias</button>'+
       (navState.session.authenticated?'<button type="button" class="nav-action nav-action-danger" data-nav-disconnect>Desconectar Google</button>':'<button type="button" class="nav-action" data-nav-connect>Conectar Google</button>')+'</div>');
     document.getElementById('navSettingsAccount').textContent=navState.session.authenticated?(navState.session.user?.email||'Cuenta conectada'):'No hay una sesión activa. Conecta Google para sincronizar.';
@@ -127,14 +127,18 @@ function confirmUnsaved() {
   }
   return true;
 }
-function goView(view) {
+function goView(view, syncHistory = true) {
   if(view!==navState.view && !confirmUnsaved())return;
   navState.view=view;
   document.body.classList.toggle('is-categories-view',view==='categories');
   document.querySelectorAll('#appSidebar [data-nav]').forEach(btn=>btn.classList.toggle('is-active',btn.dataset.nav===view));
   safeSessionSet(NAV_VIEW_KEY,view);
+  if(syncHistory){
+    const path=view==='categories'?'/categorias':'/';
+    if(window.location.pathname!==path)window.history.pushState({calendariaView:view},'',path+window.location.search);
+  }
   setMobileOpen(false);
-  window.scrollTo({top:0,behavior:'instant'});
+  window.scrollTo({top:0,behavior:'auto'});
 }
 function readReminderDefaults(){
   const saved=safeLocalGet(NAV_REMINDER_KEY);
@@ -238,11 +242,14 @@ function initNavigation(){
   document.addEventListener('keydown',event=>{
     if(event.key==='Escape'&&document.body.classList.contains('is-nav-open'))setMobileOpen(false);
   });
-  window.addEventListener('popstate',()=>{if(!document.getElementById('navOverlay')?.open)setMobileOpen(false);});
+  window.addEventListener('popstate',()=>{
+    if(!document.getElementById('navOverlay')?.open)setMobileOpen(false);
+    goView(window.location.pathname==='/categorias'?'categories':'home',false);
+  });
   updateSession(navState.session);
   applyReminderDefaults();
   const remembered=safeSessionGet(NAV_VIEW_KEY);
-  goView(remembered==='categories'?'categories':'home');
+  goView(window.location.pathname==='/categorias'||remembered==='categories'?'categories':'home',false);
 }
 window.addEventListener('calendaria:session-updated',event=>{
   updateSession(event.detail);
