@@ -421,7 +421,12 @@ async function refreshGoogleEvents({ silent = false } = {}) {
     renderEvents();
     if (!silent) showToast('Google Calendar actualizado', 'success');
   } catch (error) {
-    if (!silent) showToast(errorMessage(error), 'error');
+    if (error?.code === 'GOOGLE_AUTH_EXPIRED' || error?.code === 'AUTH_REQUIRED') {
+      state.session = { authenticated: false, integrations: state.session.integrations };
+      state.calendarEvents = [];
+      state.calendarEventsLoaded = false;
+      showToast('Tu conexión con Google expiró. Inicia sesión nuevamente.', 'error');
+    } else if (!silent) showToast(errorMessage(error), 'error');
   } finally {
     state.eventsLoading = false;
     updateAuthUI();
@@ -754,11 +759,20 @@ async function initialize() {
   $('manualDate').value = localDateValue();
   bindTabs();
   bindEvents();
+  window.addEventListener('calendaria:session-expired', () => {
+    state.session = { authenticated: false, integrations: state.session.integrations };
+    state.calendarEvents = [];
+    state.calendarEventsLoaded = false;
+    updateAuthUI();
+    renderEvents();
+    showToast('Tu sesión de Google expiró. Vuelve a conectarte.', 'error');
+  });
   renderEvents();
   updateAuthUI();
 
   try {
     state.session = await loadSession();
+     if (state.session.authExpired) showToast('Tu sesión de Google expiró. Vuelve a conectarte.', 'error');
   } catch (error) {
     showToast(errorMessage(error), 'error');
   }
