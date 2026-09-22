@@ -677,6 +677,21 @@ function bindTabs() {
 
 function bindEvents() {
   $('authButton').addEventListener('click', async () => {
+    if (state.session.sessionError) {
+      $('authButton').disabled = true;
+      try {
+        state.session = await loadSession();
+        window.dispatchEvent(new CustomEvent('calendaria:session-updated', { detail: state.session }));
+        if (state.session.authenticated) await refreshGoogleEvents({ silent: true });
+        else showToast('Conexión restablecida. Puedes conectar tu cuenta de Google.', 'success');
+      } catch (error) {
+        state.session.sessionError = true;
+        showToast(errorMessage(error), 'error');
+      } finally {
+        updateAuthUI();
+      }
+      return;
+    }
     if (!state.session.authenticated) {
       if (!integrationEnabled('google')) {
         showToast('Google OAuth no está configurado en el servidor', 'error');
@@ -692,6 +707,7 @@ function bindEvents() {
       window.dispatchEvent(new CustomEvent('calendaria:session-updated', { detail: state.session }));
       state.calendarEvents = [];
       state.calendarEventsLoaded = false;
+      state.eventsError = '';
       updateAuthUI();
       renderEvents();
       showToast('Sesión de Google cerrada', 'success');
@@ -808,6 +824,7 @@ async function initialize() {
     window.dispatchEvent(new CustomEvent('calendaria:session-updated', { detail: state.session }));
     if (state.session.authExpired) showToast('Tu sesión de Google expiró. Vuelve a conectarte.', 'error');
   } catch (error) {
+    state.session = { authenticated: false, integrations: null, sessionError: true };
     showToast(errorMessage(error), 'error');
   }
   updateAuthUI();
