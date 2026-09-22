@@ -125,12 +125,39 @@ function getTimeZone(req) {
   }
 }
 
-async function googleContext(req, res) {
-  const context = await ensureAccessToken(req.session);
+async function googleContext(req, res, forceRefresh = false) {
+  const context = await ensureAccessToken(req.session, forceRefresh);
   if (context.refreshed) {
+    const previousRefreshToken = req.session.refreshToken;
     req.session = setSession(res, context.session);
+    if (context.session.refreshToken && context.session.refreshToken !== previousRefreshToken) {
+      setGoogleGrant(res, { sub: req.session.user.sub, email: req.session.user.email, refreshToken: context.session.refreshToken });
+    }
   }
   return context.accessToken;
+}
+
+// Retry once when Google rejects an access token before its advertised expiry.
+// Invalid refresh grants are cleared by the centralized error handler; network
+// and provider outages keep the session intact so users can retry safely.
+async function withGoogleRetry(req, res, operation) {
+  const accessToken = await googleContext(req, res);
+  try {
+    return await operation(accessToken);
+  } catch (error) {
+    if (!['GOOGLE_AUTH_EXPIRED', 'SUPABASE_GOOGLE_AUTH_REQUIRED'].includes(error.code)) throw error;
+    const freshToken = await googleContext(req, res, true);
+    try {
+      return await operation(freshToken);
+    } catch (retryError) {
+      if (['GOOGLE_AUTH_EXPIRED', 'SUPABASE_GOOGLE_AUTH_REQUIRED'].includes(retryError.code)) {
+        retryError.code = 'GOOGLE_RECONNECT_REQUIRED';
+        retryError.statusCode = 401;
+        retryError.message = 'La conexión con Google necesita una nueva autorización';
+      }
+      throw retryError;
+    }
+  }
 }
 
 const requireGeminiIntegration = requireIntegration('gemini');
@@ -199,13 +226,37 @@ app.get('/terms', (req, res) => {
   return res.sendFile(path.join(publicDir, 'terms.html'));
 });
 
-app.get('/api/session', (req, res) => {
-  const session = readSession(req);
+app.get('/api/session', async (req, res, next) => {
+  let session = readSession(req);
   if (!session) {
     return res.json({
       authenticated: false,
       integrations: config.integrations,
     });
+  }
+
+  // Sessions last up to 30 days and are renewed while the user is active.
+  // Google access tokens remain short-lived and are refreshed server-side;
+  // provider token lifetime cannot be extended by this application.
+  try {
+    const grant = readGoogleGrant(req);
+    if (!session.refreshToken && grant?.sub === session.user.sub) {
+      session = { ...session, refreshToken: grant.refreshToken };
+    }
+    if (!session.accessToken || session.accessTokenExpiresAt < Date.now() + 120_000) {
+      const refreshed = await ensureAccessToken(session);
+      session = setSession(res, refreshed.session);
+    } else if (session.expiresAt - Date.now() < 7 * 24 * 60 * 60 * 1000) {
+      session = setSession(res, session);
+    }
+  } catch (error) {
+    if (error.code === 'GOOGLE_RECONNECT_REQUIRED') {
+      clearSession(req, res);
+      clearGoogleGrant(res);
+      return res.json({ authenticated: false, reason: 'google_reconnect_required', integrations: config.integrations });
+    }
+    // Transient Google errors should not log users out.
+    return next(error);
   }
 
   return res.json({
@@ -340,8 +391,7 @@ app.get(
   calendarUserLimiter,
   async (req, res, next) => {
     try {
-      const accessToken = await googleContext(req, res);
-      const eventTypes = await listEventTypes(accessToken);
+      const eventTypes = await withGoogleRetry(req, res, (accessToken) => listEventTypes(accessToken));
       return res.json({ eventTypes });
     } catch (error) {
       return next(error);
@@ -358,8 +408,7 @@ app.put(
   calendarUserLimiter,
   async (req, res, next) => {
     try {
-      const accessToken = await googleContext(req, res);
-      const eventTypes = await replaceEventTypes(accessToken, req.body?.eventTypes);
+      const eventTypes = await withGoogleRetry(req, res, (accessToken) => replaceEventTypes(accessToken, req.body?.eventTypes));
       return res.json({ eventTypes });
     } catch (error) {
       return next(error);
@@ -374,17 +423,16 @@ app.get(
   calendarUserLimiter,
   async (req, res, next) => {
     try {
-      const accessToken = await googleContext(req, res);
       const timeZone = getTimeZone(req);
       if (String(req.query.view || '') === 'calendar') {
         const month = String(req.query.month || '');
         if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
           throw new ValidationError('El mes solicitado no es válido');
         }
-        const events = await listCalendarMonthEvents(accessToken, timeZone, month);
+        const events = await withGoogleRetry(req, res, (accessToken) => listCalendarMonthEvents(accessToken, timeZone, month));
         return res.json({ events, month });
       }
-      const events = await listCalendarEvents(accessToken, timeZone);
+      const events = await withGoogleRetry(req, res, (accessToken) => listCalendarEvents(accessToken, timeZone));
       return res.json({ events });
     } catch (error) {
       return next(error);
@@ -402,9 +450,10 @@ app.post(
     try {
       const event = validateEvent(req.body);
       const timeZone = getTimeZone(req);
-      const accessToken = await googleContext(req, res);
-      const googleColorId = await resolveEventTypeColor(accessToken, event.category);
-      const result = await createCalendarEvent(accessToken, { ...event, googleColorId }, timeZone);
+      const result = await withGoogleRetry(req, res, async (accessToken) => {
+        const googleColorId = await resolveEventTypeColor(accessToken, event.category);
+        return createCalendarEvent(accessToken, { ...event, googleColorId }, timeZone);
+      });
       return res.status(result.duplicate ? 200 : 201).json({
         googleEventId: result.event.id,
         htmlLink: result.event.htmlLink || '',
@@ -426,9 +475,10 @@ app.patch(
     try {
       const event = validateEvent(req.body);
       const timeZone = getTimeZone(req);
-      const accessToken = await googleContext(req, res);
-      const googleColorId = await resolveEventTypeColor(accessToken, event.category);
-      const updated = await updateCalendarEvent(accessToken, req.params.eventId, { ...event, googleColorId }, timeZone);
+      const updated = await withGoogleRetry(req, res, async (accessToken) => {
+        const googleColorId = await resolveEventTypeColor(accessToken, event.category);
+        return updateCalendarEvent(accessToken, req.params.eventId, { ...event, googleColorId }, timeZone);
+      });
       return res.json({
         googleEventId: updated.id,
         htmlLink: updated.htmlLink || '',
@@ -447,8 +497,7 @@ app.delete(
   calendarUserLimiter,
   async (req, res, next) => {
     try {
-      const accessToken = await googleContext(req, res);
-      await deleteCalendarEvent(accessToken, req.params.eventId);
+      await withGoogleRetry(req, res, (accessToken) => deleteCalendarEvent(accessToken, req.params.eventId));
       return res.status(204).end();
     } catch (error) {
       return next(error);
@@ -486,6 +535,10 @@ app.use((error, req, res, next) => {
     || (statusCode === 413 ? 'PAYLOAD_TOO_LARGE' : null)
     || (error.type === 'entity.parse.failed' ? 'INVALID_JSON' : null)
     || 'INTERNAL_ERROR';
+  if (code === 'GOOGLE_RECONNECT_REQUIRED') {
+    clearSession(req, res);
+    clearGoogleGrant(res);
+  }
   const safeMessage = statusCode < 500
     ? (error.type === 'entity.parse.failed' ? 'El cuerpo JSON de la solicitud es inválido' : error.message)
     : 'Ocurrió un error interno. Intenta nuevamente.';
