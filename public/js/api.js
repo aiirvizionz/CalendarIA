@@ -12,6 +12,9 @@ void import('./events-view-ui.js?v=4').catch((error) => {
 void import('./category-gestures-ui.js?v=4').catch((error) => {
   console.error('category_gestures_enhancement_failed', error);
 });
+void import('./account-navigation-ui.js?v=1').catch((error) => {
+  console.error('account_navigation_enhancement_failed', error);
+});
 
 let csrfToken = '';
 
@@ -49,8 +52,11 @@ async function request(url, options = {}) {
   const payload = await readJson(response);
 
   if (!response.ok) {
-    if (response.status === 401 && payload?.error?.code === 'GOOGLE_AUTH_EXPIRED') {
-      window.dispatchEvent(new CustomEvent('calendaria:session-expired'));
+    if (response.status === 401 && ['GOOGLE_AUTH_EXPIRED', 'AUTH_REQUIRED'].includes(payload?.error?.code)) {
+      csrfToken = '';
+      window.dispatchEvent(new CustomEvent('calendaria:session-expired', {
+        detail: { code: payload?.error?.code || 'AUTH_REQUIRED' },
+      }));
     }
     const error = new Error(payload?.error?.message || `La solicitud falló (${response.status})`);
     error.code = payload?.error?.code || 'REQUEST_FAILED';
