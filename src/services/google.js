@@ -145,6 +145,18 @@ async function refreshAccessToken(refreshToken) {
   return response.json();
 }
 
+// Multiple independent UI panels can simultaneously refresh the same stateless
+// cookie. Share one in-flight token exchange to avoid needless refresh races.
+const pendingRefreshes = new Map();
+function refreshTokenOnce(refreshToken) {
+  const fingerprint = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  const pending = pendingRefreshes.get(fingerprint);
+  if (pending) return pending;
+  const request = refreshAccessToken(refreshToken).finally(() => pendingRefreshes.delete(fingerprint));
+  pendingRefreshes.set(fingerprint, request);
+  return request;
+}
+
 async function getUserInfo(accessToken) {
   const response = await fetchWithTimeout(GOOGLE_USERINFO_URL, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -157,7 +169,7 @@ async function ensureAccessToken(session) {
     return { accessToken: session.accessToken, session, refreshed: false };
   }
 
-  const tokens = await refreshAccessToken(session.refreshToken);
+  const tokens = await refreshTokenOnce(session.refreshToken);
   const updatedSession = {
     ...session,
     accessToken: tokens.access_token,
