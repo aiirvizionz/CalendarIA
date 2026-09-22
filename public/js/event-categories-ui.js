@@ -64,6 +64,9 @@ async function request(url, options = {}) {
   });
   const payload = await readJson(response);
   if (!response.ok) {
+    if (response.status === 401 && ['GOOGLE_AUTH_EXPIRED', 'AUTH_REQUIRED'].includes(payload?.error?.code)) {
+      window.dispatchEvent(new CustomEvent('calendaria:session-expired'));
+    }
     const error = new Error(payload?.error?.message || `La solicitud falló (${response.status})`);
     error.code = payload?.error?.code || 'REQUEST_FAILED';
     error.requestId = payload?.error?.requestId || '';
@@ -802,6 +805,17 @@ async function initialize() {
   renderAccess();
   await syncSession({ reloadPreferences: true });
 }
+
+window.addEventListener('calendaria:session-updated', (event) => {
+  if (event.detail?.authenticated) return;
+  state.session = { authenticated: false, integrations: event.detail?.integrations || state.session.integrations };
+  state.csrfToken = '';
+  state.categories = [];
+  state.draft = [];
+  state.loaded = false;
+  state.dirty = false;
+  renderAccess();
+});
 
 if (document.readyState === 'loading') {
   window.addEventListener('DOMContentLoaded', initialize, { once: true });
