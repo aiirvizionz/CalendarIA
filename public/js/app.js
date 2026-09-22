@@ -53,6 +53,7 @@ const state = {
   audioProcessing: false,
   calendarEvents: [],
   calendarEventsLoaded: false,
+  eventsError: '',
   eventsLoading: false,
   reconcileTimer: null,
 };
@@ -270,14 +271,17 @@ function updateAvatar() {
 
 function updateAuthUI() {
   const statusKnown = state.session.integrations !== null;
+  const sessionError = Boolean(state.session.sessionError);
   const authenticated = Boolean(state.session.authenticated);
   const googleConfigured = integrationEnabled('google');
   const geminiConfigured = integrationEnabled('gemini');
   const aiAvailable = authenticated && geminiConfigured;
 
-  $('authButton').disabled = !statusKnown || (!authenticated && !googleConfigured);
-  $('authButtonText').textContent = !statusKnown
-    ? 'Verificando…'
+  $('authButton').disabled = (!statusKnown && !sessionError) || (statusKnown && !authenticated && !googleConfigured);
+  $('authButtonText').textContent = sessionError
+    ? 'Reintentar conexión'
+    : !statusKnown
+      ? 'Verificando…'
     : authenticated
       ? 'Cerrar sesión'
       : googleConfigured
@@ -292,7 +296,10 @@ function updateAuthUI() {
 
   let gateTitle = 'Inicia sesión para usar Gemini';
   let gateDescription = 'Así protegemos la cuota de la API y asociamos límites de uso a una sesión real.';
-  if (!statusKnown) {
+  if (sessionError) {
+    gateTitle = 'No se pudo verificar la conexión';
+    gateDescription = 'Google está tardando en responder. Pulsa Reintentar conexión para volver a comprobar tu sesión.';
+  } else if (!statusKnown) {
     gateTitle = 'Verificando integraciones';
     gateDescription = 'CalendarIA está comprobando la disponibilidad del servidor.';
   } else if (!googleConfigured) {
@@ -358,7 +365,22 @@ function renderEvents() {
   const list = $('eventsList');
   list.replaceChildren();
   $('eventCount').textContent = String(items.length);
-  $('emptyState').classList.toggle('is-hidden', items.length > 0 || state.eventsLoading);
+  const empty = $('emptyState');
+  empty.classList.toggle('is-hidden', items.length > 0 || state.eventsLoading);
+  const emptyTitle = empty.querySelector('h3');
+  const emptyCopy = empty.querySelector('p');
+  if (state.eventsError) {
+    emptyTitle.textContent = 'No se pudo sincronizar la agenda';
+    emptyCopy.textContent = state.eventsError + ' Pulsa actualizar para reintentar.';
+  } else if (!state.session.authenticated) {
+    emptyTitle.textContent = 'Conecta Google Calendar';
+    emptyCopy.textContent = 'Inicia sesión para consultar y administrar tus próximos eventos.';
+  } else {
+    emptyTitle.textContent = 'Tu agenda está libre';
+    emptyCopy.textContent = 'Tus próximos eventos de Google Calendar aparecerán aquí.';
+  }
+  const providerLabel = document.querySelector('.events-heading .eyebrow');
+  if (providerLabel) providerLabel.textContent = state.eventsError ? 'Google Calendar · Sin sincronizar' : 'Google Calendar';
 
   for (const event of items) {
     const fragment = $('eventTemplate').content.cloneNode(true);
@@ -407,10 +429,12 @@ async function refreshGoogleEvents({ silent = false } = {}) {
   if (!state.session.authenticated || !integrationEnabled('google')) {
     state.calendarEvents = [];
     state.calendarEventsLoaded = false;
+    state.eventsError = '';
     renderEvents();
     return;
   }
 
+  state.eventsError = '';
   state.eventsLoading = true;
   updateAuthUI();
   renderEvents();
@@ -419,6 +443,7 @@ async function refreshGoogleEvents({ silent = false } = {}) {
     const result = await listGoogleEvents();
     state.calendarEvents = Array.isArray(result?.events) ? result.events : [];
     state.calendarEventsLoaded = true;
+    state.eventsError = '';
     renderEvents();
     if (!silent) showToast('Google Calendar actualizado', 'success');
   } catch (error) {
@@ -427,8 +452,12 @@ async function refreshGoogleEvents({ silent = false } = {}) {
       window.dispatchEvent(new CustomEvent('calendaria:session-updated', { detail: state.session }));
       state.calendarEvents = [];
       state.calendarEventsLoaded = false;
+      state.eventsError = '';
       // The global session-expired handler already displays the reconnection message.
-    } else if (!silent) showToast(errorMessage(error), 'error');
+    } else {
+      state.eventsError = errorMessage(error);
+      if (!silent) showToast(state.eventsError, 'error');
+    }
   } finally {
     state.eventsLoading = false;
     updateAuthUI();
