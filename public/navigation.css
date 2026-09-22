@@ -89,3 +89,11 @@ html[data-calendar-theme="light"] .site-header .brand, html[data-calendar-theme=
 @media (prefers-reduced-motion: reduce) {
   .app-sidebar, .nav-scrim, .nav-item, .nav-caption { transition: none; }
 }
+
+/* Brand-consistent light appearance and compact signed-in header. */
+html[data-calendar-theme="light"] { --bg:#f5f4f1; --surface:#fffcfa; --surface-strong:#fff; --surface-soft:#f3efeb; --surface-tint:#eee9e4; --accent:#1a1b1d; --accent-strong:#090a0b; --accent-soft:#e8e6e1; --border:rgba(33,35,40,.13); --text:#181a1c; --muted:#686b70; --subtle:#888b91; --shadow:0 22px 52px #30291a16; --shadow-soft:0 12px 30px #30291a10; }
+html[data-calendar-theme="light"] body { background:linear-gradient(180deg,#f8f7f4 0%,#f1efec 100%); }
+html[data-calendar-theme="light"] .ambient { display:none; }
+.nav-action-link { display:inline-block; text-decoration:none; }
+body:has(#userChip:not(.is-hidden)) #authButton { display:none; }
+@media(max-width:520px){.site-header { width:calc(100% - 26px); } .user-chip #userName {display:none;} .account-area{gap:4px;} .brand {font-size:.92rem;} }
