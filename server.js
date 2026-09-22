@@ -128,7 +128,13 @@ function getTimeZone(req) {
 async function googleContext(req, res) {
   try {
     const context = await ensureAccessToken(req.session);
-    if (context.refreshed) req.session = setSession(res, context.session);
+    if (context.refreshed) {
+      const oldRefreshToken = req.session.refreshToken;
+      req.session = setSession(res, context.session);
+      if (context.session.refreshToken !== oldRefreshToken) {
+        setGoogleGrant(res, { sub: req.session.user.sub, email: req.session.user.email, refreshToken: context.session.refreshToken });
+      }
+    }
     return context.accessToken;
   } catch (error) {
     if (error.code === 'GOOGLE_AUTH_EXPIRED') {
@@ -515,9 +521,11 @@ app.use((error, req, res, next) => {
     || (statusCode === 413 ? 'PAYLOAD_TOO_LARGE' : null)
     || (error.type === 'entity.parse.failed' ? 'INVALID_JSON' : null)
     || 'INTERNAL_ERROR';
-  const safeMessage = statusCode < 500
-    ? (error.type === 'entity.parse.failed' ? 'El cuerpo JSON de la solicitud es inválido' : error.message)
-    : 'Ocurrió un error interno. Intenta nuevamente.';
+  const safeMessage = code === 'GOOGLE_REFRESH_UNAVAILABLE'
+    ? 'Google no pudo renovar la conexión temporalmente. Espera un momento y vuelve a intentarlo.'
+    : statusCode < 500
+      ? (error.type === 'entity.parse.failed' ? 'El cuerpo JSON de la solicitud es inválido' : error.message)
+      : 'Ocurrió un error interno. Intenta nuevamente.';
 
   if (statusCode >= 500) {
     console.error(JSON.stringify({
