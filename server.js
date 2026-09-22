@@ -126,11 +126,17 @@ function getTimeZone(req) {
 }
 
 async function googleContext(req, res) {
-  const context = await ensureAccessToken(req.session);
-  if (context.refreshed) {
-    req.session = setSession(res, context.session);
+  try {
+    const context = await ensureAccessToken(req.session);
+    if (context.refreshed) req.session = setSession(res, context.session);
+    return context.accessToken;
+  } catch (error) {
+    if (error.code === 'GOOGLE_AUTH_EXPIRED') {
+      clearSession(req, res);
+      clearGoogleGrant(res);
+    }
+    throw error;
   }
-  return context.accessToken;
 }
 
 const requireGeminiIntegration = requireIntegration('gemini');
@@ -199,13 +205,32 @@ app.get('/terms', (req, res) => {
   return res.sendFile(path.join(publicDir, 'terms.html'));
 });
 
-app.get('/api/session', (req, res) => {
+app.get('/api/session', async (req, res, next) => {
   const session = readSession(req);
   if (!session) {
     return res.json({
       authenticated: false,
       integrations: config.integrations,
     });
+  }
+
+  try {
+    if (config.integrations.google) {
+      const context = await ensureAccessToken(session);
+      if (context.refreshed) {
+        req.session = setSession(res, context.session);
+        if (context.session.refreshToken !== session.refreshToken) {
+          setGoogleGrant(res, { sub: session.user.sub, email: session.user.email, refreshToken: context.session.refreshToken });
+        }
+      }
+    }
+  } catch (error) {
+    if (error.code === 'GOOGLE_AUTH_EXPIRED') {
+      clearSession(req, res);
+      clearGoogleGrant(res);
+      return res.json({ authenticated: false, authExpired: true, integrations: config.integrations });
+    }
+    return next(error);
   }
 
   return res.json({
@@ -224,9 +249,7 @@ app.get('/api/auth/google/start', requireGoogleIntegration, (req, res, next) => 
   try {
     const authorization = createAuthorizationRequest();
     const authorizationUrl = new URL(authorization.url);
-    if (readGoogleGrant(req)) {
-      authorizationUrl.searchParams.delete('prompt');
-    }
+    if (!readGoogleGrant(req)) authorizationUrl.searchParams.set('prompt', 'consent');
     setOAuthState(res, {
       state: authorization.state,
       verifier: authorization.verifier,
