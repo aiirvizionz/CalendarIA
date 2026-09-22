@@ -46,6 +46,23 @@ test('una interrupción de Google no invalida permanentemente la sesión', async
     return true;
   });
 });
+test('dos paneles comparten la misma renovación de token en curso',async(t)=>{
+  const previous=global.fetch;
+  t.after(()=>{global.fetch=previous;});
+  let calls=0;
+  global.fetch=async()=>{
+    calls+=1;
+    await new Promise(resolve=>setTimeout(resolve,8));
+    return response({access_token:'shared-access',expires_in:3600});
+  };
+  const [first,second]=await Promise.all([
+    ensureAccessToken(expiredSession()),
+    ensureAccessToken(expiredSession()),
+  ]);
+  assert.equal(calls,1);
+  assert.equal(first.accessToken,'shared-access');
+  assert.equal(second.accessToken,'shared-access');
+});
 test('el servidor invalida las cookies si Calendar API también rechaza el token',()=>{
   const source=fs.readFileSync(require.resolve('../server'),'utf8');
   assert.match(source,/error\?\.code === 'GOOGLE_AUTH_EXPIRED'[\s\S]*clearSession\(req, res\);[\s\S]*clearGoogleGrant\(res\);/);
