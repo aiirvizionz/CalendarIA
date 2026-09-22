@@ -97,3 +97,16 @@ html[data-calendar-theme="light"] .ambient { display:none; }
 .nav-action-link { display:inline-block; text-decoration:none; }
 body:has(#userChip:not(.is-hidden)) #authButton { display:none; }
 @media(max-width:520px){.site-header { width:calc(100% - 26px); } .user-chip #userName {display:none;} .account-area{gap:4px;} .brand {font-size:.92rem;} }
+
+/* Final responsive polish: a white mobile drawer follows the reference design. */
+@media (max-width: 767px) {
+  .app-sidebar { background:#fffcf9; color:#17191d; }
+  .app-sidebar .nav-item:hover, .app-sidebar .nav-item:focus-visible, .app-sidebar .nav-item.is-active {background:#ece9e5;}
+  .app-sidebar .nav-divider {background:#e6e0da;}
+  .app-sidebar .nav-item[data-nav="logout"] {color:#a93c44;}
+}
+html[data-calendar-theme="light"] .events-card { background:#fffcf9 !important; color:#191b20 !important; border-color:#e4e0db; }
+html[data-calendar-theme="light"] .events-card .event-card { background:#f8f6f2; border-color:#e3ddd6; color:#191b20; }
+html[data-calendar-theme="light"] .footer-panel {background:#fffcf9;border-color:#e5dfd9;}
+.event-category-color-picker {z-index:2700 !important;}
+#eventCategoriesRetryButton {margin:10px 0 14px;}
